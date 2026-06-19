@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet";
+// Optional: managed transcript API used as a fallback when the direct YouTube
+// fetch is blocked (e.g. from datacenter IPs on Render). https://supadata.ai
+const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
 
 // Keep transcripts within a sane token budget for the model.
 const MAX_TRANSCRIPT_CHARS = 48000;
@@ -33,6 +36,67 @@ function extractVideoId(input) {
   for (const re of patterns) {
     const m = url.match(re);
     if (m) return m[1];
+  }
+  return null;
+}
+
+/** Direct YouTube transcript fetch — works from residential IPs (localhost). */
+async function fetchTranscriptDirect(videoId) {
+  const segments = await YoutubeTranscript.fetchTranscript(videoId);
+  if (!segments || segments.length === 0) return null;
+  return segments.map((s) => s.text).join(" ");
+}
+
+/** Supadata transcript API — works from datacenter IPs (Render). */
+async function fetchTranscriptSupadata(videoId) {
+  if (!SUPADATA_API_KEY) return null;
+  const url = `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(
+    `https://www.youtube.com/watch?v=${videoId}`
+  )}&text=true`;
+  const res = await fetch(url, { headers: { "x-api-key": SUPADATA_API_KEY } });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Supadata ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  // With text=true Supadata returns { content: "..." }; otherwise an array.
+  if (typeof data?.content === "string") return data.content;
+  if (Array.isArray(data?.content)) {
+    return data.content.map((s) => s.text).join(" ");
+  }
+  return null;
+}
+
+/**
+ * Get a transcript, trying the direct fetch first and falling back to Supadata
+ * when the direct fetch fails or returns nothing (typical on cloud hosts).
+ */
+async function getTranscript(videoId) {
+  let directErr;
+  try {
+    const direct = await fetchTranscriptDirect(videoId);
+    if (direct && direct.trim()) return direct;
+  } catch (e) {
+    directErr = e;
+    console.warn("[transcript] direct fetch failed:", e.message);
+  }
+
+  try {
+    const viaApi = await fetchTranscriptSupadata(videoId);
+    if (viaApi && viaApi.trim()) {
+      console.log("[transcript] used Supadata fallback");
+      return viaApi;
+    }
+  } catch (e) {
+    console.warn("[transcript] Supadata fallback failed:", e.message);
+  }
+
+  // Nothing worked.
+  if (!SUPADATA_API_KEY && directErr) {
+    throw new Error(
+      "NO_TRANSCRIPT_BLOCKED: Direct YouTube fetch failed and no SUPADATA_API_KEY is set. " +
+        "On cloud hosts, set SUPADATA_API_KEY to enable transcript fetching."
+    );
   }
   return null;
 }
@@ -163,28 +227,30 @@ app.post("/api/notes", async (req, res) => {
       });
     }
 
-    // Fetch transcript.
-    let segments;
+    // Fetch transcript (direct fetch, with Supadata fallback for cloud hosts).
+    let rawTranscript;
     try {
-      segments = await YoutubeTranscript.fetchTranscript(videoId);
+      rawTranscript = await getTranscript(videoId);
     } catch (e) {
+      if (String(e.message).startsWith("NO_TRANSCRIPT_BLOCKED")) {
+        return res.status(422).json({
+          error:
+            "Transcript fetch is blocked on this server's network. Set SUPADATA_API_KEY on the host to enable it.",
+        });
+      }
       return res.status(422).json({
         error:
           "Couldn't get a transcript for this video. It may have captions disabled or be unavailable.",
       });
     }
 
-    if (!segments || segments.length === 0) {
+    if (!rawTranscript || !rawTranscript.trim()) {
       return res
         .status(422)
         .json({ error: "This video has no transcript / captions available." });
     }
 
-    let transcript = segments
-      .map((s) => s.text)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
+    let transcript = rawTranscript.replace(/\s+/g, " ").trim();
 
     let truncated = false;
     if (transcript.length > MAX_TRANSCRIPT_CHARS) {

@@ -13,3 +13,7 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: deepseek/deepseek-v4-flash
+      # Required on Render (YouTube blocks direct transcript fetch from
+      # datacenter IPs). Free key at https://supadata.ai
+      - key: SUPADATA_API_KEY
+        sync: false
