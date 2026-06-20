@@ -1,6 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const multer = require("multer");
+const pdfParse = require("pdf-parse");
 const { YoutubeTranscript } = require("youtube-transcript");
 
 const app = express();
@@ -128,7 +130,8 @@ function buildPrompt(transcript, style) {
   ];
 }
 
-async function callOpenRouter(transcript, style) {
+/** Core OpenRouter chat call. Returns the assistant message text. */
+async function openRouterChat(messages, { temperature = 0.3, maxTokens = 4000 } = {}) {
   // Abort if OpenRouter takes too long (avoids hanging / ECONNRESET dangling).
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
@@ -147,9 +150,9 @@ async function callOpenRouter(transcript, style) {
       },
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
-        messages: buildPrompt(transcript, style),
-        temperature: 0.3,
-        max_tokens: 4000,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
       }),
     });
   } finally {
@@ -191,10 +194,14 @@ async function callOpenRouter(transcript, style) {
   return notes;
 }
 
+function callOpenRouter(transcript, style) {
+  return openRouterChat(buildPrompt(transcript, style), { maxTokens: 4000 });
+}
+
 // Retry once on transient network resets (ECONNRESET / aborted connections).
-async function generateNotes(transcript, style) {
+async function withRetry(fn) {
   try {
-    return await callOpenRouter(transcript, style);
+    return await fn();
   } catch (err) {
     const transient =
       err?.name === "AbortError" ||
@@ -202,8 +209,84 @@ async function generateNotes(transcript, style) {
       /terminated|ECONNRESET|fetch failed/i.test(err?.message || "");
     if (!transient) throw err;
     console.warn("[OpenRouter] transient error, retrying once:", err.message);
-    return await callOpenRouter(transcript, style);
+    return await fn();
   }
+}
+
+function generateNotes(transcript, style) {
+  return withRetry(() => callOpenRouter(transcript, style));
+}
+
+// ----------------------------- Quiz generation -----------------------------
+
+const MAX_QUIZ_QUESTIONS = 20;
+const MAX_SOURCE_CHARS = 24000; // keep quiz prompts within a sane token budget
+
+/** Build the MCQ-generation prompt. Asks for strict JSON we can parse. */
+function buildQuizPrompt(source, { numQuestions, difficulty }) {
+  return [
+    {
+      role: "system",
+      content:
+        "You are an expert exam writer. From the provided study material you create " +
+        "multiple-choice questions that test real understanding (not trivia). " +
+        `Write exactly ${numQuestions} questions at ${difficulty} difficulty. ` +
+        "Each question has exactly 4 options with ONE correct answer. " +
+        "Vary the position of the correct option. Keep options plausible and concise. " +
+        "Respond with ONLY valid minified JSON (no markdown, no code fences, no commentary) " +
+        'of the shape: {"questions":[{"question":string,"options":[string,string,string,string],' +
+        '"answer":number,"explanation":string}]} where "answer" is the 0-based index of the ' +
+        "correct option and \"explanation\" briefly says why it's correct.",
+    },
+    {
+      role: "user",
+      content: `Create the quiz from this material:\n\n${source}`,
+    },
+  ];
+}
+
+/** Pull a JSON object out of a model response, tolerating stray fences/prose. */
+function parseQuizJson(text) {
+  let s = String(text).trim();
+  // Strip ```json ... ``` fences if present.
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  // Fall back to the outermost { ... } if there's leading/trailing prose.
+  if (!s.startsWith("{")) {
+    const first = s.indexOf("{");
+    const last = s.lastIndexOf("}");
+    if (first !== -1 && last !== -1) s = s.slice(first, last + 1);
+  }
+  const data = JSON.parse(s);
+  const questions = Array.isArray(data?.questions) ? data.questions : [];
+  const clean = questions
+    .filter(
+      (q) =>
+        q &&
+        typeof q.question === "string" &&
+        Array.isArray(q.options) &&
+        q.options.length === 4 &&
+        Number.isInteger(q.answer) &&
+        q.answer >= 0 &&
+        q.answer <= 3
+    )
+    .map((q) => ({
+      question: q.question.trim(),
+      options: q.options.map((o) => String(o).trim()),
+      answer: q.answer,
+      explanation: typeof q.explanation === "string" ? q.explanation.trim() : "",
+    }));
+  return clean;
+}
+
+async function generateQuiz(source, opts) {
+  const text = await withRetry(() =>
+    openRouterChat(buildQuizPrompt(source, opts), { temperature: 0.4, maxTokens: 4000 })
+  );
+  const questions = parseQuizJson(text);
+  if (questions.length === 0) {
+    throw new Error("Model did not return any valid questions. Try again.");
+  }
+  return questions;
 }
 
 app.get("/api/health", (_req, res) => {
@@ -272,6 +355,124 @@ app.post("/api/notes", async (req, res) => {
     return res
       .status(500)
       .json({ error: err.message || "Failed to generate notes." });
+  }
+});
+
+// Upload handling for PDF quizzes (10 MB cap, in-memory).
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+/** Validate + normalise quiz options coming from the client. */
+function parseQuizOpts(body) {
+  let numQuestions = parseInt(body?.numQuestions, 10);
+  if (!Number.isFinite(numQuestions)) numQuestions = 5;
+  numQuestions = Math.max(3, Math.min(numQuestions, MAX_QUIZ_QUESTIONS));
+  const allowed = ["easy", "medium", "hard"];
+  const difficulty = allowed.includes(body?.difficulty) ? body.difficulty : "medium";
+  return { numQuestions, difficulty };
+}
+
+function prepareSource(text) {
+  let s = String(text || "").replace(/\s+/g, " ").trim();
+  if (s.length > MAX_SOURCE_CHARS) s = s.slice(0, MAX_SOURCE_CHARS);
+  return s;
+}
+
+/**
+ * Generate a quiz from notes text or a YouTube link.
+ * Body: { source: "notes" | "youtube", text?, url?, numQuestions?, difficulty? }
+ */
+app.post("/api/quiz", async (req, res) => {
+  try {
+    if (!OPENROUTER_API_KEY) {
+      return res.status(500).json({
+        error: "Server is missing OPENROUTER_API_KEY. Set it in server/.env.",
+      });
+    }
+
+    const { source } = req.body || {};
+    const opts = parseQuizOpts(req.body);
+    let material;
+
+    if (source === "youtube") {
+      const videoId = extractVideoId(req.body?.url);
+      if (!videoId) {
+        return res
+          .status(400)
+          .json({ error: "Could not find a valid YouTube video URL or id." });
+      }
+      let transcript;
+      try {
+        transcript = await getTranscript(videoId);
+      } catch (e) {
+        return res.status(422).json({
+          error: String(e.message).startsWith("NO_TRANSCRIPT_BLOCKED")
+            ? "Transcript fetch is blocked on this server's network. Set SUPADATA_API_KEY on the host."
+            : "Couldn't get a transcript for this video.",
+        });
+      }
+      material = prepareSource(transcript);
+    } else if (source === "notes") {
+      material = prepareSource(req.body?.text);
+    } else {
+      return res.status(400).json({ error: "Unknown quiz source." });
+    }
+
+    if (!material || material.length < 40) {
+      return res
+        .status(422)
+        .json({ error: "Not enough material to build a quiz from." });
+    }
+
+    const questions = await generateQuiz(material, opts);
+    return res.json({ questions, ...opts });
+  } catch (err) {
+    console.error("[/api/quiz]", err);
+    return res.status(500).json({ error: err.message || "Failed to build quiz." });
+  }
+});
+
+/**
+ * Generate a quiz from an uploaded PDF (multipart field "file").
+ * Extra form fields: numQuestions, difficulty.
+ */
+app.post("/api/quiz/pdf", upload.single("file"), async (req, res) => {
+  try {
+    if (!OPENROUTER_API_KEY) {
+      return res.status(500).json({
+        error: "Server is missing OPENROUTER_API_KEY. Set it in server/.env.",
+      });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "No PDF file uploaded." });
+    }
+
+    let text;
+    try {
+      const parsed = await pdfParse(req.file.buffer);
+      text = parsed.text;
+    } catch (e) {
+      console.warn("[quiz/pdf] parse failed:", e.message);
+      return res
+        .status(422)
+        .json({ error: "Couldn't read text from that PDF (it may be scanned/image-only)." });
+    }
+
+    const material = prepareSource(text);
+    if (!material || material.length < 40) {
+      return res
+        .status(422)
+        .json({ error: "This PDF has no extractable text (it may be scanned images)." });
+    }
+
+    const opts = parseQuizOpts(req.body);
+    const questions = await generateQuiz(material, opts);
+    return res.json({ questions, ...opts });
+  } catch (err) {
+    console.error("[/api/quiz/pdf]", err);
+    return res.status(500).json({ error: err.message || "Failed to build quiz." });
   }
 });
 
