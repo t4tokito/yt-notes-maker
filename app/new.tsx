@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { generateNotes, type NoteStyle } from "../lib/api";
-import { insertNote } from "../lib/db";
+import { insertNote } from "../lib/notes";
 
 const STYLES: { key: NoteStyle; label: string }[] = [
   { key: "summary", label: "Summary" },
@@ -57,28 +57,40 @@ export default function NewNote() {
 
   return (
     <ScrollView
-      className="flex-1 bg-slate-900"
+      className="flex-1 bg-background"
       contentContainerStyle={{ padding: 20 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text className="mb-2 text-sm font-medium text-slate-300">
-        YouTube link
-      </Text>
-      <TextInput
-        value={url}
-        onChangeText={setUrl}
-        placeholder="https://youtube.com/watch?v=..."
-        placeholderTextColor="#64748b"
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-        editable={!loading}
-        className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-base text-slate-100"
-      />
+      <View className="mb-6 rounded-2xl bg-white/70 p-5"
+        style={{
+          shadowColor: "#659287",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
+      >
+        <Text className="mb-2 text-sm font-medium text-text-primary">
+          YouTube link
+        </Text>
+        <TextInput
+          value={url}
+          onChangeText={setUrl}
+          placeholder="https://youtube.com/watch?v=..."
+          placeholderTextColor="#B1D3B9"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          editable={!loading}
+          className="rounded-xl border border-leaf-100 bg-white/60 px-4 py-3 text-base text-text-primary"
+        />
+      </View>
 
-      <Text className="mb-2 mt-6 text-sm font-medium text-slate-300">
-        Note style
-      </Text>
+      <View className="mb-2 flex-row items-center gap-2">
+        <Text className="text-sm font-medium text-text-primary">
+          Note style
+        </Text>
+      </View>
       <View className="flex-row gap-2">
         {STYLES.map((s) => {
           const active = s.key === style;
@@ -89,13 +101,20 @@ export default function NewNote() {
               disabled={loading}
               className={`flex-1 items-center rounded-xl border px-3 py-2.5 ${
                 active
-                  ? "border-indigo-400 bg-indigo-500"
-                  : "border-slate-700 bg-slate-800"
+                  ? "border-leaf-200 bg-leaf-200"
+                  : "border-leaf-100 bg-white/60"
               }`}
+              style={active ? {
+                shadowColor: "#659287",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 4,
+                elevation: 3,
+              } : {}}
             >
               <Text
                 className={`text-sm font-semibold ${
-                  active ? "text-white" : "text-slate-300"
+                  active ? "text-white" : "text-leaf-200"
                 }`}
               >
                 {s.label}
@@ -106,8 +125,8 @@ export default function NewNote() {
       </View>
 
       {error ? (
-        <View className="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-3">
-          <Text className="text-sm text-red-300">{error}</Text>
+        <View className="mt-5 rounded-xl border border-red-300 bg-red-50 p-3">
+          <Text className="text-sm text-red-500">{error}</Text>
         </View>
       ) : null}
 
@@ -115,12 +134,19 @@ export default function NewNote() {
         onPress={onGenerate}
         disabled={loading}
         className={`mt-6 h-14 flex-row items-center justify-center rounded-2xl ${
-          loading ? "bg-indigo-500/60" : "bg-indigo-500 active:opacity-80"
+          loading ? "bg-leaf-200/60" : "bg-leaf-200 active:opacity-80"
         }`}
+        style={{
+          shadowColor: "#659287",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 4,
+        }}
       >
         {loading ? (
           <>
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#ffffff" />
             <Text className="ml-3 text-base font-bold text-white">
               Generating notes…
             </Text>
@@ -131,7 +157,7 @@ export default function NewNote() {
       </Pressable>
 
       {loading ? (
-        <Text className="mt-3 text-center text-xs text-slate-500">
+        <Text className="mt-3 text-center text-xs text-leaf-200">
           Fetching transcript and summarizing — this can take a few seconds.
         </Text>
       ) : null}
