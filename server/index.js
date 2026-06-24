@@ -476,6 +476,121 @@ app.post("/api/quiz/pdf", upload.single("file"), async (req, res) => {
   }
 });
 
+// ----------------------------- PDF Notes -----------------------------
+
+app.post("/api/pdf-notes", upload.single("file"), async (req, res) => {
+  try {
+    if (!OPENROUTER_API_KEY) {
+      return res.status(500).json({ error: "Server is missing OPENROUTER_API_KEY." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "No PDF file uploaded." });
+    }
+
+    let text;
+    try {
+      const parsed = await pdfParse(req.file.buffer);
+      text = parsed.text;
+    } catch (e) {
+      return res.status(422).json({ error: "Couldn't read text from that PDF." });
+    }
+
+    const material = prepareSource(text);
+    if (!material || material.length < 40) {
+      return res.status(422).json({ error: "This PDF has no extractable text." });
+    }
+
+    const style = req.body?.style || "detailed";
+    const instruction = STYLE_INSTRUCTIONS[style] || STYLE_INSTRUCTIONS.detailed;
+
+    const messages = [
+      {
+        role: "system",
+        content:
+          "You are an expert note-taker. You turn raw document text into clear, well-structured notes. " +
+          "Output ONLY Markdown notes — no preamble, no closing remarks. " + instruction,
+      },
+      {
+        role: "user",
+        content: `Create notes from this document:\n\n${material}`,
+      },
+    ];
+
+    const notes = await openRouterChat(messages, { maxTokens: 4000 });
+    return res.json({ notes, model: OPENROUTER_MODEL });
+  } catch (err) {
+    console.error("[/api/pdf-notes]", err);
+    return res.status(500).json({ error: err.message || "Failed to generate notes from PDF." });
+  }
+});
+
+// ----------------------------- AI Tools -----------------------------
+
+const AI_TOOLS_PROMPTS = {
+  summarize: "Provide a concise summary of the following text. Use clear headings and bullet points.",
+  explain: "Explain the following topic in simple terms anyone can understand. Use examples where helpful.",
+  flashcards:
+    "Create study flashcards from the following material. " +
+    "Output ONLY valid JSON (no markdown, no code fences) of the shape: " +
+    '{"cards":[{"front":"question or term","back":"answer or definition"}]} ' +
+    "Make 8-12 cards covering the key concepts.",
+};
+
+app.post("/api/ai", async (req, res) => {
+  try {
+    if (!OPENROUTER_API_KEY) {
+      return res.status(500).json({ error: "Server is missing OPENROUTER_API_KEY." });
+    }
+
+    const { tool, text } = req.body || {};
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: "Please provide some text or a topic." });
+    }
+
+    const prompt = AI_TOOLS_PROMPTS[tool];
+    if (!prompt) {
+      return res.status(400).json({ error: "Unknown tool." });
+    }
+
+    const material = prepareSource(text);
+    if (material.length < 10) {
+      return res.status(422).json({ error: "Text is too short." });
+    }
+
+    if (tool === "flashcards") {
+      const result = await openRouterChat(
+        [
+          { role: "system", content: prompt },
+          { role: "user", content: material },
+        ],
+        { temperature: 0.3, maxTokens: 3000 }
+      );
+      let s = result.trim();
+      s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+      if (!s.startsWith("{")) {
+        const first = s.indexOf("{");
+        const last = s.lastIndexOf("}");
+        if (first !== -1 && last !== -1) s = s.slice(first, last + 1);
+      }
+      const data = JSON.parse(s);
+      return res.json({ cards: data.cards || [] });
+    }
+
+    const result = await openRouterChat(
+      [
+        { role: "system", content: "You are a helpful study assistant. " + prompt },
+        { role: "user", content: material },
+      ],
+      { temperature: 0.3, maxTokens: 3000 }
+    );
+
+    return res.json({ result });
+  } catch (err) {
+    console.error("[/api/ai]", err);
+    return res.status(500).json({ error: err.message || "AI tool failed." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Notes Maker server running on http://localhost:${PORT}`);
   if (!OPENROUTER_API_KEY) {

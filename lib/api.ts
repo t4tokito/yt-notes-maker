@@ -92,7 +92,6 @@ export async function generateQuizFromPdf(
   opts: QuizOptions
 ): Promise<GeneratedQuiz> {
   const form = new FormData();
-  // React Native's FormData accepts this {uri,name,type} shape for files.
   form.append("file", {
     uri: file.uri,
     name: file.name || "document.pdf",
@@ -110,4 +109,54 @@ export async function generateQuizFromPdf(
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || `Request failed (${res.status}).`);
   return data as GeneratedQuiz;
+}
+
+// ----------------------------- PDF Notes -----------------------------
+
+export async function generatePdfNotes(
+  file: { uri: string; name: string; mimeType?: string },
+  style: NoteStyle = "detailed"
+): Promise<{ notes: string; model: string }> {
+  const form = new FormData();
+  form.append("file", {
+    uri: file.uri,
+    name: file.name || "document.pdf",
+    type: file.mimeType || "application/pdf",
+  } as any);
+  form.append("style", style);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/pdf-notes`, { method: "POST", body: form });
+  } catch {
+    throw NETWORK_ERROR();
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status}).`);
+  return data;
+}
+
+// ----------------------------- AI Tools -----------------------------
+
+export type AiTool = "summarize" | "explain" | "flashcards";
+
+export type Flashcard = { front: string; back: string };
+
+export async function runAiTool(
+  tool: AiTool,
+  text: string
+): Promise<{ result?: string; cards?: Flashcard[] }> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tool, text }),
+    });
+  } catch {
+    throw NETWORK_ERROR();
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status}).`);
+  return data;
 }
