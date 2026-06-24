@@ -1,47 +1,26 @@
 import { Fragment } from "react";
 import { Text, View } from "react-native";
+import { useTheme } from "./theme";
 
-/**
- * Minimal Markdown renderer for AI-generated notes.
- * Handles: #/##/### headings, -/* bullet lists (with simple nesting),
- * 1. ordered lists, > blockquotes, --- rules, and inline **bold** / *italic* /
- * `code`. Good enough for the structured notes our backend produces, with no
- * native dependency.
- */
-
-function renderInline(text: string, keyPrefix: string) {
+function renderInline(text: string, keyPrefix: string, colors: ReturnType<typeof useTheme>["colors"]) {
   const tokens = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`)/g);
   return tokens.filter(Boolean).map((tok, i) => {
     const key = `${keyPrefix}-${i}`;
     if (tok.startsWith("**") && tok.endsWith("**")) {
-      return (
-        <Text key={key} className="font-bold text-leaf-300">
-          {tok.slice(2, -2)}
-        </Text>
-      );
+      return <Text key={key} style={{ fontWeight: "bold", color: colors.accentDark }}>{tok.slice(2, -2)}</Text>;
     }
-    if (
-      (tok.startsWith("*") && tok.endsWith("*")) ||
-      (tok.startsWith("_") && tok.endsWith("_"))
-    ) {
-      return (
-        <Text key={key} className="italic text-leaf-200">
-          {tok.slice(1, -1)}
-        </Text>
-      );
+    if ((tok.startsWith("*") && tok.endsWith("*")) || (tok.startsWith("_") && tok.endsWith("_"))) {
+      return <Text key={key} style={{ fontStyle: "italic", color: colors.muted }}>{tok.slice(1, -1)}</Text>;
     }
     if (tok.startsWith("`") && tok.endsWith("`")) {
-      return (
-        <Text key={key} className="text-leaf-300">
-          {tok.slice(1, -1)}
-        </Text>
-      );
+      return <Text key={key} style={{ color: colors.accentDark }}>{tok.slice(1, -1)}</Text>;
     }
     return <Fragment key={key}>{tok}</Fragment>;
   });
 }
 
 export function Markdown({ content }: { content: string }) {
+  const { colors } = useTheme();
   const lines = content.replace(/\r\n/g, "\n").split("\n");
 
   return (
@@ -50,91 +29,57 @@ export function Markdown({ content }: { content: string }) {
         const line = raw.replace(/\s+$/, "");
         const key = `l-${idx}`;
 
-        if (line.trim() === "") {
-          return <View key={key} className="h-2" />;
-        }
+        if (line.trim() === "") return <View key={key} style={{ height: 8 }} />;
 
-        // Horizontal rule
         if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
-          return <View key={key} className="my-3 h-px bg-leaf-100" />;
+          return <View key={key} style={{ marginVertical: 12, height: 1, backgroundColor: colors.border }} />;
         }
 
-        // Headings
         const h = line.match(/^(#{1,6})\s+(.*)$/);
         if (h) {
           const level = h[1].length;
-          const cls =
-            level === 1
-              ? "text-2xl font-bold text-leaf-300 mt-4 mb-1"
-              : level === 2
-                ? "text-xl font-bold text-leaf-300 mt-4 mb-1"
-                : "text-base font-semibold text-leaf-300 mt-3 mb-1";
-          return (
-            <Text key={key} className={cls}>
-              {renderInline(h[2], key)}
-            </Text>
-          );
+          const style = {
+            fontWeight: "700" as const,
+            color: colors.accentDark,
+            marginTop: level <= 2 ? 16 : 12,
+            marginBottom: 4,
+            ...(level === 1 ? { fontSize: 22 } : level === 2 ? { fontSize: 18 } : { fontSize: 16 }),
+          };
+          return <Text key={key} style={style}>{renderInline(h[2], key, colors)}</Text>;
         }
 
-        // Blockquote
         const bq = line.match(/^\s*>\s?(.*)$/);
         if (bq) {
           return (
-            <View
-              key={key}
-              className="my-1 border-l-4 border-leaf-200 bg-white/50 py-1 pl-3"
-            >
-              <Text className="text-[15px] leading-6 text-leaf-200">
-                {renderInline(bq[1], key)}
-              </Text>
+            <View key={key} style={{ marginVertical: 4, borderLeftWidth: 4, borderLeftColor: colors.border, backgroundColor: colors.card, paddingVertical: 4, paddingLeft: 12 }}>
+              <Text style={{ fontSize: 15, lineHeight: 24, color: colors.muted }}>{renderInline(bq[1], key, colors)}</Text>
             </View>
           );
         }
 
-        // Bullet list (supports one level of nesting via leading spaces)
         const bullet = line.match(/^(\s*)[-*+]\s+(.*)$/);
         if (bullet) {
           const indent = Math.min(Math.floor(bullet[1].length / 2), 3);
           return (
-            <View
-              key={key}
-              className="my-0.5 flex-row"
-              style={{ paddingLeft: 8 + indent * 16 }}
-            >
-              <Text className="text-[15px] leading-6 text-leaf-200">• </Text>
-              <Text className="flex-1 text-[15px] leading-6 text-text-primary">
-                {renderInline(bullet[2], key)}
-              </Text>
+            <View key={key} style={{ marginVertical: 2, flexDirection: "row", paddingLeft: 8 + indent * 16 }}>
+              <Text style={{ fontSize: 15, lineHeight: 24, color: colors.muted }}>• </Text>
+              <Text style={{ flex: 1, fontSize: 15, lineHeight: 24, color: colors.text }}>{renderInline(bullet[2], key, colors)}</Text>
             </View>
           );
         }
 
-        // Ordered list
         const ordered = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
         if (ordered) {
           const indent = Math.min(Math.floor(ordered[1].length / 2), 3);
           return (
-            <View
-              key={key}
-              className="my-0.5 flex-row"
-              style={{ paddingLeft: 8 + indent * 16 }}
-            >
-              <Text className="text-[15px] leading-6 text-leaf-200">
-                {ordered[2]}.{" "}
-              </Text>
-              <Text className="flex-1 text-[15px] leading-6 text-text-primary">
-                {renderInline(ordered[3], key)}
-              </Text>
+            <View key={key} style={{ marginVertical: 2, flexDirection: "row", paddingLeft: 8 + indent * 16 }}>
+              <Text style={{ fontSize: 15, lineHeight: 24, color: colors.muted }}>{ordered[2]}. </Text>
+              <Text style={{ flex: 1, fontSize: 15, lineHeight: 24, color: colors.text }}>{renderInline(ordered[3], key, colors)}</Text>
             </View>
           );
         }
 
-        // Paragraph
-        return (
-          <Text key={key} className="my-0.5 text-[15px] leading-6 text-text-primary">
-            {renderInline(line, key)}
-          </Text>
-        );
+        return <Text key={key} style={{ marginVertical: 2, fontSize: 15, lineHeight: 24, color: colors.text }}>{renderInline(line, key, colors)}</Text>;
       })}
     </View>
   );

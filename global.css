@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --leaf-50: #E6F2DD;
+  --leaf-100: #B1D3B9;
+  --leaf-200: #88BDA4;
+  --leaf-300: #659287;
+  --bg: #E6F2DD;
+  --bg-card: #B1D3B9;
+  --bg-border: #88BDA4;
+  --text-primary: #659287;
+  --text-secondary: #88BDA4;
+  --text-muted: #B1D3B9;
+  --surface: #ffffff;
+}
+
+.dark {
+  --leaf-50: #1a2e1a;
+  --leaf-100: #2d4a2d;
+  --leaf-200: #3d6b3d;
+  --leaf-300: #5a8f5a;
+  --bg: #0f1a0f;
+  --bg-card: #1a2e1a;
+  --bg-border: #2d4a2d;
+  --text-primary: #a8d5a8;
+  --text-secondary: #7ab87a;
+  --text-muted: #4a7a4a;
+  --surface: #1a2e1a;
+}

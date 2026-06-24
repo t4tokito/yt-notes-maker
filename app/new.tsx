@@ -1,20 +1,16 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
 import { generateNotes, type NoteStyle } from "../lib/api";
 import { insertNote } from "../lib/notes";
+import { useTheme } from "../lib/theme";
+import { hapticMedium, hapticSuccess } from "../lib/haptics";
 
-const STYLES: { key: NoteStyle; label: string }[] = [
-  { key: "summary", label: "Summary" },
-  { key: "detailed", label: "Detailed" },
-  { key: "bullets", label: "Bullets" },
+const STYLES: { key: NoteStyle; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { key: "summary", label: "Summary", icon: "summarize" },
+  { key: "detailed", label: "Detailed", icon: "auto-stories" },
+  { key: "bullets", label: "Bullets", icon: "format-list-bulleted" },
 ];
 
 function deriveTitle(markdown: string, fallback: string) {
@@ -25,142 +21,103 @@ function deriveTitle(markdown: string, fallback: string) {
 }
 
 export default function NewNote() {
+  const { colors } = useTheme();
   const [url, setUrl] = useState("");
   const [style, setStyle] = useState<NoteStyle>("detailed");
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   async function onGenerate() {
-    if (!url.trim()) {
-      setError("Paste a YouTube link first.");
-      return;
-    }
+    if (!url.trim()) { setError("Paste a YouTube link first."); return; }
     setError(null);
     setLoading(true);
+    setProgress(0);
+    const progressInterval = setInterval(() => { setProgress((p) => { if (p >= 90) return 90; return p + Math.random() * 15; }); }, 800);
     try {
       const result = await generateNotes(url.trim(), style);
-      const title = deriveTitle(result.notes, "Untitled note");
-      const id = await insertNote({
-        video_id: result.videoId,
-        title,
-        url: result.url,
-        content: result.notes,
-      });
-      router.replace(`/note/${id}`);
+      clearInterval(progressInterval);
+      setProgress(100);
+      const title = result.title || deriveTitle(result.notes, "Untitled note");
+      const id = await insertNote({ video_id: result.videoId, title, url: result.url, content: result.notes });
+      hapticSuccess();
+      setTimeout(() => router.replace(`/note/${id}`), 500);
     } catch (e: any) {
+      clearInterval(progressInterval);
       setError(e?.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ padding: 20 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View className="mb-6 rounded-2xl bg-white/70 p-5"
-        style={{
-          shadowColor: "#659287",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
-      >
-        <Text className="mb-2 text-sm font-medium text-text-primary">
-          YouTube link
-        </Text>
-        <TextInput
-          value={url}
-          onChangeText={setUrl}
-          placeholder="https://youtube.com/watch?v=..."
-          placeholderTextColor="#B1D3B9"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          editable={!loading}
-          className="rounded-xl border border-leaf-100 bg-white/60 px-4 py-3 text-base text-text-primary"
-        />
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={{ marginTop: 40, marginBottom: 24 }}>
+        <Pressable onPress={() => router.back()} style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <MaterialIcons name="arrow-back" size={18} color={colors.accent} />
+          <Text style={{ fontSize: 14, color: colors.accent, fontWeight: "600" }}>Back</Text>
+        </Pressable>
+        <Text style={{ fontSize: 26, fontWeight: "800", color: colors.text }}>Generate Notes</Text>
+        <Text style={{ marginTop: 4, fontSize: 14, color: colors.muted }}>Paste a YouTube video link to create AI-powered notes</Text>
       </View>
 
-      <View className="mb-2 flex-row items-center gap-2">
-        <Text className="text-sm font-medium text-text-primary">
-          Note style
-        </Text>
+      <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textSecondary, marginBottom: 8 }}>YOUTUBE URL</Text>
+        <TextInput value={url} onChangeText={setUrl} placeholder="https://youtube.com/watch?v=..." placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!loading}
+          style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: colors.text }} />
       </View>
-      <View className="flex-row gap-2">
+
+      <Text style={{ marginBottom: 12, fontSize: 13, fontWeight: "600", color: colors.textSecondary }}>NOTE STYLE</Text>
+      <View style={{ flexDirection: "row", gap: 10 }}>
         {STYLES.map((s) => {
           const active = s.key === style;
           return (
-            <Pressable
-              key={s.key}
-              onPress={() => setStyle(s.key)}
-              disabled={loading}
-              className={`flex-1 items-center rounded-xl border px-3 py-2.5 ${
-                active
-                  ? "border-leaf-200 bg-leaf-200"
-                  : "border-leaf-100 bg-white/60"
-              }`}
-              style={active ? {
-                shadowColor: "#659287",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
-              } : {}}
-            >
-              <Text
-                className={`text-sm font-semibold ${
-                  active ? "text-white" : "text-leaf-200"
-                }`}
-              >
-                {s.label}
-              </Text>
+            <Pressable key={s.key} onPress={() => { hapticMedium(); setStyle(s.key); }} disabled={loading}
+              style={{ flex: 1, alignItems: "center", borderRadius: 16, borderWidth: active ? 2 : 1, paddingVertical: 16, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.accentLight : colors.card }}>
+              <MaterialIcons name={s.icon} size={28} color={active ? colors.accent : colors.muted} />
+              <Text style={{ marginTop: 6, fontSize: 13, fontWeight: "600", color: active ? colors.accent : colors.muted }}>{s.label}</Text>
             </Pressable>
           );
         })}
       </View>
 
       {error ? (
-        <View className="mt-5 rounded-xl border border-red-300 bg-red-50 p-3">
-          <Text className="text-sm text-red-500">{error}</Text>
+        <View style={{ marginTop: 20, borderRadius: 14, borderWidth: 1, borderColor: colors.errorBorder, backgroundColor: colors.errorBg, padding: 14, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <MaterialIcons name="error-outline" size={18} color={colors.errorText} />
+          <Text style={{ fontSize: 14, color: colors.errorText, flex: 1 }}>{error}</Text>
         </View>
       ) : null}
 
-      <Pressable
-        onPress={onGenerate}
-        disabled={loading}
-        className={`mt-6 h-14 flex-row items-center justify-center rounded-2xl ${
-          loading ? "bg-leaf-200/60" : "bg-leaf-200 active:opacity-80"
-        }`}
-        style={{
-          shadowColor: "#659287",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 4,
-        }}
-      >
+      {loading && (
+        <View style={{ marginTop: 24 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.text }}>Generating notes...</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.accent }}>{Math.min(Math.round(progress), 100)}%</Text>
+          </View>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" }}>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.accent, width: `${Math.min(progress, 100)}%` }} />
+          </View>
+          <Text style={{ marginTop: 6, fontSize: 12, color: colors.muted }}>
+            {progress < 30 ? "Fetching transcript..." : progress < 60 ? "Reading content..." : progress < 90 ? "AI is writing notes..." : "Almost done..."}
+          </Text>
+        </View>
+      )}
+
+      <Pressable onPress={onGenerate} disabled={loading}
+        style={{ marginTop: 28, height: 56, borderRadius: 16, backgroundColor: loading ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center", shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 }}>
         {loading ? (
-          <>
-            <ActivityIndicator color="#ffffff" />
-            <Text className="ml-3 text-base font-bold text-white">
-              Generating notes…
-            </Text>
-          </>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <ActivityIndicator color="#fff" />
+            <Text style={{ marginLeft: 12, fontSize: 16, fontWeight: "700", color: "#fff" }}>Generating...</Text>
+          </View>
         ) : (
-          <Text className="text-base font-bold text-white">Generate Notes</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <MaterialIcons name="auto-fix-high" size={20} color="#fff" />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>Generate Notes</Text>
+          </View>
         )}
       </Pressable>
-
-      {loading ? (
-        <Text className="mt-3 text-center text-xs text-leaf-200">
-          Fetching transcript and summarizing — this can take a few seconds.
-        </Text>
-      ) : null}
     </ScrollView>
   );
 }

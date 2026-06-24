@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   orderBy,
   query,
   serverTimestamp,
@@ -25,6 +26,7 @@ export type Note = {
   url: string | null;
   content: string;
   created_at: number;
+  pinned: boolean;
 };
 
 function requireUid(): string {
@@ -54,11 +56,12 @@ function toNote(snap: QueryDocumentSnapshot<DocumentData>): Note {
     url: d.url ?? null,
     content: d.content ?? "",
     created_at: createdAt,
+    pinned: d.pinned ?? false,
   };
 }
 
 export async function insertNote(
-  note: Omit<Note, "id" | "created_at">
+  note: Omit<Note, "id" | "created_at" | "pinned">
 ): Promise<string> {
   const uid = requireUid();
   const ref = await addDoc(notesCol(uid), {
@@ -66,8 +69,10 @@ export async function insertNote(
     title: note.title,
     url: note.url ?? null,
     content: note.content,
+    pinned: false,
     created_at: serverTimestamp(),
   });
+  updateDoc(doc(db, "users", uid), { notesCount: increment(1) }).catch(() => {});
   return ref.id;
 }
 
@@ -88,12 +93,13 @@ export async function getNote(id: string): Promise<Note | null> {
 
 export async function updateNote(
   id: string,
-  fields: Partial<Pick<Note, "title" | "content">>
+  fields: Partial<Pick<Note, "title" | "content" | "pinned">>
 ): Promise<void> {
   const uid = requireUid();
   const patch: Record<string, unknown> = {};
   if (fields.title !== undefined) patch.title = fields.title;
   if (fields.content !== undefined) patch.content = fields.content;
+  if (fields.pinned !== undefined) patch.pinned = fields.pinned;
   if (Object.keys(patch).length === 0) return;
   await updateDoc(doc(db, "users", uid, "notes", id), patch);
 }
@@ -101,4 +107,49 @@ export async function updateNote(
 export async function deleteNote(id: string): Promise<void> {
   const uid = requireUid();
   await deleteDoc(doc(db, "users", uid, "notes", id));
+  updateDoc(doc(db, "users", uid), { notesCount: increment(-1) }).catch(() => {});
+}
+
+export type WeekDay = { label: string; count: number };
+
+export async function getWeeklyActivity(): Promise<WeekDay[]> {
+  const uid = requireUid();
+  const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - mondayOffset);
+  const mondayMs = monday.getTime();
+
+  const [notesSnap, resultsSnap] = await Promise.all([
+    getDocs(query(notesCol(uid), orderBy("created_at", "desc"))),
+    getDocs(query(collection(db, "users", uid, "testResults"), orderBy("created_at", "desc"))),
+  ]);
+
+  const counts = new Array(7).fill(0);
+
+  for (const d of notesSnap.docs) {
+    const ts = d.data().created_at;
+    const ms = typeof ts?.toMillis === "function" ? ts.toMillis() : typeof ts === "number" ? ts : 0;
+    if (ms >= mondayMs) {
+      const date = new Date(ms);
+      const idx = date.getDay() === 0 ? 6 : date.getDay() - 1;
+      counts[idx]++;
+    }
+  }
+
+  for (const d of resultsSnap.docs) {
+    const ts = d.data().created_at;
+    const ms = typeof ts?.toMillis === "function" ? ts.toMillis() : typeof ts === "number" ? ts : 0;
+    if (ms >= mondayMs) {
+      const date = new Date(ms);
+      const idx = date.getDay() === 0 ? 6 : date.getDay() - 1;
+      counts[idx]++;
+    }
+  }
+
+  return DAY_LABELS.map((label, i) => ({ label, count: counts[i] }));
 }

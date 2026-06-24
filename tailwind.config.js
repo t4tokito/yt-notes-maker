@@ -18,6 +18,7 @@ module.exports = {
         },
         background: {
           DEFAULT: "#E6F2DD",
+          dark: "#111827",
           card: "#B1D3B9",
           border: "#88BDA4",
         },
@@ -25,6 +26,13 @@ module.exports = {
           primary: "#659287",
           secondary: "#88BDA4",
           muted: "#B1D3B9",
+        },
+        dark: {
+          bg: "#111827",
+          card: "#1f2937",
+          border: "#374151",
+          text: "#f9fafb",
+          muted: "#9ca3af",
         },
       },
     },

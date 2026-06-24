@@ -54,23 +54,58 @@ Notes are saved per-user in **Cloud Firestore**, gated behind **Firebase Auth**
    EXPO_PUBLIC_FIREBASE_APP_ID=...
    ```
 
-5. **Firestore → Rules** — lock notes to their owner:
+5. **Firestore → Rules** — complete rules for all collections:
 
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       // Covers notes (users/{uid}/notes) and test results
-       // (users/{uid}/testResults) — each user owns everything under their uid.
-       match /users/{uid}/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == uid;
+       // Public username -> email map. Readable by anyone so login-by-username
+       // can resolve the email AND signup can check availability.
+       match /usernames/{name} {
+         allow read: if true;
+         allow create: if request.auth != null
+                       && request.resource.data.uid == request.auth.uid;
+         allow update, delete: if false;
+       }
+
+       // The user's profile doc + everything under it.
+       match /users/{uid} {
+         allow read: if request.auth != null;
+         allow write: if request.auth != null && request.auth.uid == uid;
+         match /{document=**} {
+           allow read, write: if request.auth != null && request.auth.uid == uid;
+         }
+       }
+
+       // Chat messages between two users.
+       match /chats/{chatId} {
+         allow read, write: if request.auth != null;
+         match /messages/{messageId} {
+           allow read, write: if request.auth != null;
+         }
+       }
+
+       // Group chats.
+       match /groups/{groupId} {
+         allow read, write: if request.auth != null;
+         match /messages/{messageId} {
+           allow read, write: if request.auth != null;
+         }
+       }
+
+       // Watch rooms.
+       match /watchRooms/{roomId} {
+         allow read, write: if request.auth != null;
        }
      }
    }
    ```
 
-Notes live at `users/{uid}/notes/{noteId}`. Sign up in the app, and every note
-you generate is stored under your account and synced across your devices.
+Notes live at `users/{uid}/notes/{noteId}`. Sign up in the app (email +
+a unique username, 6–15 chars), and every note you generate is stored under
+your account and synced across your devices. You can sign in with **either your
+username or your email** plus your password.
 
 ## 3. App (root)
 

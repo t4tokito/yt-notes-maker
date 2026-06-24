@@ -7,7 +7,8 @@ import {
   // missing from some firebase/auth type bundles.
   getReactNativePersistence,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
+import { getDatabase } from "firebase/database";
 import { Platform } from "react-native";
 
 /**
@@ -24,6 +25,13 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Debug: log the projectId to verify env vars are loaded
+if (__DEV__) {
+  console.log("[Firebase] projectId:", firebaseConfig.projectId);
+  console.log("[Firebase] authDomain:", firebaseConfig.authDomain);
+  console.log("[Firebase] apiKey set:", !!firebaseConfig.apiKey);
+}
+
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // On native we need AsyncStorage-backed persistence so the user stays logged in
@@ -35,5 +43,12 @@ export const auth =
         persistence: getReactNativePersistence(AsyncStorage),
       });
 
-export const db = getFirestore(app);
+// Use initializeFirestore with long polling so Firestore works even on networks
+// that block WebSocket / gRPC (common on mobile carriers, school/work WiFi).
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+});
+
+export const rtdb = getDatabase(app);
 export default app;

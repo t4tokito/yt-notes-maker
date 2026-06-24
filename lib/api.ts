@@ -7,6 +7,7 @@ export type GeneratedNotes = {
   url: string;
   model: string;
   truncated: boolean;
+  title: string;
   notes: string;
 };
 

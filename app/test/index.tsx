@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -6,31 +6,32 @@ import {
   Text,
   TextInput,
   View,
+  Animated,
+  Easing,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import {
-  generateQuiz,
-  generateQuizFromPdf,
-  type GeneratedQuiz,
-  type QuizDifficulty,
-} from "../../lib/api";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialIcons } from "@expo/vector-icons";
+import { generateQuiz, generateQuizFromPdf, type GeneratedQuiz, type QuizDifficulty } from "../../lib/api";
 import { getNotes, type Note } from "../../lib/notes";
 import { saveTestResult } from "../../lib/testResults";
+import { useTheme } from "../../lib/theme";
+import { hapticMedium, hapticSuccess } from "../../lib/haptics";
 
 type Source = "notes" | "pdf" | "youtube";
 type Phase = "setup" | "loading" | "quiz" | "result";
 
-const SOURCES: { key: Source; label: string; icon: string }[] = [
-  { key: "notes", label: "My Notes", icon: "📒" },
-  { key: "pdf", label: "PDF", icon: "📄" },
-  { key: "youtube", label: "YouTube", icon: "▶️" },
+const SOURCES: { key: Source; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { key: "notes", label: "My Notes", icon: "menu-book" },
+  { key: "pdf", label: "PDF", icon: "picture-as-pdf" },
+  { key: "youtube", label: "YouTube", icon: "smart-display" },
 ];
 
 const COUNTS = [5, 10, 15];
 const DIFFICULTIES: QuizDifficulty[] = ["easy", "medium", "hard"];
 
-const CARD = {
+const CARD_SHADOW = {
   shadowColor: "#659287",
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.08,
@@ -40,11 +41,11 @@ const CARD = {
 
 export default function TestScreen() {
   const { noteId } = useLocalSearchParams<{ noteId?: string }>();
+  const { colors, gradient } = useTheme();
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [error, setError] = useState<string | null>(null);
-
-  // Setup state
+  const [progress, setProgress] = useState(0);
   const [source, setSource] = useState<Source>("notes");
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
@@ -52,39 +53,21 @@ export default function TestScreen() {
   const [ytUrl, setYtUrl] = useState("");
   const [numQuestions, setNumQuestions] = useState(5);
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
-
-  // Quiz state
   const [quiz, setQuiz] = useState<GeneratedQuiz | null>(null);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
   const [current, setCurrent] = useState(0);
   const [saved, setSaved] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      getNotes()
-        .then((n) => {
-          setNotes(n);
-          if (noteId) {
-            const match = n.find((x) => x.id === noteId);
-            if (match) {
-              setSource("notes");
-              setSelectedNote(match);
-            }
-          }
-        })
-        .catch((e) => console.error(e));
-    }, [noteId])
-  );
+  useFocusEffect(useCallback(() => {
+    getNotes().then((n) => {
+      setNotes(n);
+      if (noteId) { const m = n.find((x) => x.id === noteId); if (m) { setSource("notes"); setSelectedNote(m); } }
+    }).catch((e) => console.error(e));
+  }, [noteId]));
 
   async function pickPdf() {
-    const res = await DocumentPicker.getDocumentAsync({
-      type: "application/pdf",
-      copyToCacheDirectory: true,
-    });
-    if (!res.canceled && res.assets?.[0]) {
-      setPdf(res.assets[0]);
-      setError(null);
-    }
+    const res = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true });
+    if (!res.canceled && res.assets?.[0]) { setPdf(res.assets[0]); setError(null); }
   }
 
   const quizTitle = () => {
@@ -96,185 +79,110 @@ export default function TestScreen() {
   async function onGenerate() {
     setError(null);
     try {
-      if (source === "notes" && !selectedNote) {
-        setError("Pick a note to be tested on.");
-        return;
-      }
-      if (source === "pdf" && !pdf) {
-        setError("Choose a PDF first.");
-        return;
-      }
-      if (source === "youtube" && !ytUrl.trim()) {
-        setError("Paste a YouTube link first.");
-        return;
-      }
+      if (source === "notes" && !selectedNote) { setError("Pick a note to be tested on."); return; }
+      if (source === "pdf" && !pdf) { setError("Choose a PDF first."); return; }
+      if (source === "youtube" && !ytUrl.trim()) { setError("Paste a YouTube link first."); return; }
       setPhase("loading");
+      setProgress(0);
+
+      const progressInterval = setInterval(() => {
+        setProgress((p) => {
+          if (p >= 90) return 90;
+          return p + Math.random() * 15;
+        });
+      }, 800);
+
       const opts = { numQuestions, difficulty };
       let result: GeneratedQuiz;
-      if (source === "notes") {
-        result = await generateQuiz("notes", { text: selectedNote!.content }, opts);
-      } else if (source === "youtube") {
-        result = await generateQuiz("youtube", { url: ytUrl.trim() }, opts);
-      } else {
-        result = await generateQuizFromPdf(pdf!, opts);
-      }
-      setQuiz(result);
-      setAnswers(new Array(result.questions.length).fill(null));
-      setCurrent(0);
-      setSaved(false);
-      setPhase("quiz");
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong.");
-      setPhase("setup");
-    }
+      if (source === "notes") result = await generateQuiz("notes", { text: selectedNote!.content }, opts);
+      else if (source === "youtube") result = await generateQuiz("youtube", { url: ytUrl.trim() }, opts);
+      else result = await generateQuizFromPdf(pdf!, opts);
+
+      clearInterval(progressInterval);
+      setProgress(100);
+      hapticSuccess();
+      setQuiz(result); setAnswers(new Array(result.questions.length).fill(null)); setCurrent(0); setSaved(false); setPhase("quiz");
+    } catch (e: any) { setError(e?.message || "Something went wrong."); setPhase("setup"); }
   }
 
-  const score = quiz
-    ? quiz.questions.reduce((acc, q, i) => acc + (answers[i] === q.answer ? 1 : 0), 0)
-    : 0;
+  const score = quiz ? quiz.questions.reduce((acc, q, i) => acc + (answers[i] === q.answer ? 1 : 0), 0) : 0;
 
-  // Persist the result once, when we reach the result screen.
   useEffect(() => {
     if (phase === "result" && quiz && !saved) {
       setSaved(true);
-      saveTestResult({
-        title: quizTitle(),
-        source,
-        score,
-        total: quiz.questions.length,
-        difficulty: quiz.difficulty ?? difficulty,
-      }).catch((e) => console.error("save result failed", e));
+      saveTestResult({ title: quizTitle(), source, score, total: quiz.questions.length, difficulty: quiz.difficulty ?? difficulty }).catch((e) => console.error("save result failed", e));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  function restart() {
-    setQuiz(null);
-    setAnswers([]);
-    setCurrent(0);
-    setSaved(false);
-    setError(null);
-    setPhase("setup");
-  }
+  function restart() { setQuiz(null); setAnswers([]); setCurrent(0); setSaved(false); setError(null); setPhase("setup"); }
+  function retake() { if (!quiz) return; setAnswers(new Array(quiz.questions.length).fill(null)); setCurrent(0); setSaved(false); setPhase("quiz"); }
 
-  function retake() {
-    if (!quiz) return;
-    setAnswers(new Array(quiz.questions.length).fill(null));
-    setCurrent(0);
-    setSaved(false);
-    setPhase("quiz");
-  }
+  const inputStyle = { borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, color: colors.text } as const;
 
-  // --------------------------- Loading ---------------------------
   if (phase === "loading") {
     return (
-      <View className="flex-1 items-center justify-center bg-background px-8">
-        <ActivityIndicator color="#88BDA4" size="large" />
-        <Text className="mt-4 text-center text-base font-semibold text-text-primary">
-          Building your quiz…
-        </Text>
-        <Text className="mt-1 text-center text-xs text-leaf-200">
-          Reading the material and writing questions.
-        </Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, paddingHorizontal: 32 }}>
+        <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={{ marginTop: 16, textAlign: "center", fontSize: 18, fontWeight: "700", color: colors.text }}>Building your quiz...</Text>
+        <View style={{ marginTop: 20, width: "80%" }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+            <Text style={{ fontSize: 13, color: colors.muted }}>Progress</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.accentDark }}>{Math.min(Math.round(progress), 100)}%</Text>
+          </View>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" }}>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.accentDark, width: `${Math.min(progress, 100)}%` }} />
+          </View>
+          <Text style={{ marginTop: 8, textAlign: "center", fontSize: 12, color: colors.muted }}>
+            {progress < 30 ? "Reading material..." : progress < 60 ? "Analyzing content..." : progress < 90 ? "Writing questions..." : "Almost done..."}
+          </Text>
+        </View>
       </View>
     );
   }
 
-  // --------------------------- Quiz ------------------------------
   if (phase === "quiz" && quiz) {
     const q = quiz.questions[current];
     const picked = answers[current];
     const isLast = current === quiz.questions.length - 1;
-    const answeredCount = answers.filter((a) => a !== null).length;
-
     return (
-      <View className="flex-1 bg-background">
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
-          <Text className="text-sm font-semibold text-text-secondary">
-            Question {current + 1} of {quiz.questions.length}
-          </Text>
-          <View className="mt-2 h-2 w-full overflow-hidden rounded-full bg-leaf-100">
-            <View
-              className="h-2 rounded-full bg-leaf-200"
-              style={{ width: `${((current + 1) / quiz.questions.length) * 100}%` }}
-            />
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.muted }}>Question {current + 1} of {quiz.questions.length}</Text>
+          <View style={{ marginTop: 8, height: 8, width: "100%", borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" }}>
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.accent, width: `${((current + 1) / quiz.questions.length) * 100}%` }} />
           </View>
-
-          <View className="mt-5 rounded-2xl bg-white/70 p-5" style={CARD}>
-            <Text className="text-lg font-bold text-text-primary">{q.question}</Text>
+          <View style={{ marginTop: 20, borderRadius: 20, backgroundColor: colors.cardGlass, padding: 20, borderWidth: 1, borderColor: colors.border, ...CARD_SHADOW }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{q.question}</Text>
           </View>
-
-          <View className="mt-4 gap-3">
+          <View style={{ marginTop: 16, gap: 12 }}>
             {q.options.map((opt, i) => {
               const active = picked === i;
               return (
-                <Pressable
-                  key={i}
-                  onPress={() => {
-                    const next = [...answers];
-                    next[current] = i;
-                    setAnswers(next);
-                  }}
-                  className={`flex-row items-center rounded-2xl border p-4 ${
-                    active ? "border-leaf-300 bg-leaf-200" : "border-leaf-100 bg-white/70"
-                  }`}
-                  style={CARD}
+                <Pressable key={i} onPress={() => {
+                  hapticMedium();
+                  const next = [...answers]; next[current] = i; setAnswers(next);
+                  if (next.every((a) => a !== null)) setTimeout(() => setPhase("result"), 300);
+                }}
+                  style={{ flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: active ? 2 : 1, padding: 16, borderColor: active ? colors.accentDark : colors.border, backgroundColor: active ? colors.accent : colors.cardGlass, ...CARD_SHADOW }}
                 >
-                  <View
-                    className={`mr-3 h-7 w-7 items-center justify-center rounded-full ${
-                      active ? "bg-white" : "bg-leaf-100"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-bold ${
-                        active ? "text-leaf-300" : "text-text-primary"
-                      }`}
-                    >
-                      {String.fromCharCode(65 + i)}
-                    </Text>
+                  <View style={{ marginRight: 12, width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: active ? "#ffffff" : colors.border }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: active ? colors.accentDark : colors.text }}>{String.fromCharCode(65 + i)}</Text>
                   </View>
-                  <Text
-                    className={`flex-1 text-base ${
-                      active ? "font-semibold text-white" : "text-text-primary"
-                    }`}
-                  >
-                    {opt}
-                  </Text>
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: active ? "600" : "400", color: active ? "#ffffff" : colors.text }}>{opt}</Text>
                 </Pressable>
               );
             })}
           </View>
         </ScrollView>
-
-        <View className="absolute bottom-0 left-0 right-0 flex-row gap-3 border-t border-leaf-100 bg-background p-4">
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", gap: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg, padding: 16 }}>
           {current > 0 && (
-            <Pressable
-              onPress={() => setCurrent((c) => c - 1)}
-              className="flex-1 items-center justify-center rounded-2xl border border-leaf-200 py-4"
-            >
-              <Text className="text-base font-bold text-text-primary">Back</Text>
+            <Pressable onPress={() => setCurrent((c) => c - 1)} style={{ flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, borderColor: colors.border, paddingVertical: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Back</Text>
             </Pressable>
           )}
-          {isLast ? (
-            <Pressable
-              onPress={() => setPhase("result")}
-              disabled={answeredCount < quiz.questions.length}
-              className={`flex-1 items-center justify-center rounded-2xl py-4 ${
-                answeredCount < quiz.questions.length ? "bg-leaf-200/50" : "bg-leaf-300"
-              }`}
-            >
-              <Text className="text-base font-bold text-white">
-                {answeredCount < quiz.questions.length
-                  ? `Answer all (${answeredCount}/${quiz.questions.length})`
-                  : "Finish"}
-              </Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => setCurrent((c) => c + 1)}
-              className="flex-1 items-center justify-center rounded-2xl bg-leaf-200 py-4"
-            >
-              <Text className="text-base font-bold text-white">Next</Text>
+          {!isLast && (
+            <Pressable onPress={() => setCurrent((c) => c + 1)} style={{ flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.accent, paddingVertical: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#ffffff" }}>Next</Text>
             </Pressable>
           )}
         </View>
@@ -282,166 +190,88 @@ export default function TestScreen() {
     );
   }
 
-  // --------------------------- Result ----------------------------
   if (phase === "result" && quiz) {
     const total = quiz.questions.length;
     const pct = Math.round((score / total) * 100);
-    const verdict =
-      pct >= 80 ? "Excellent! 🎉" : pct >= 50 ? "Good effort 👍" : "Keep practicing 💪";
-
+    const verdict = pct >= 80 ? "Excellent!" : pct >= 50 ? "Good effort!" : "Keep practicing!";
     return (
-      <ScrollView
-        className="flex-1 bg-background"
-        contentContainerStyle={{ padding: 20, paddingBottom: 48 }}
-      >
-        <View className="items-center rounded-2xl bg-white/70 p-6" style={CARD}>
-          <Text className="text-sm font-semibold text-text-secondary">Your score</Text>
-          <Text className="mt-1 text-5xl font-extrabold text-leaf-300">
-            {score}/{total}
-          </Text>
-          <Text className="mt-1 text-lg font-bold text-text-primary">{pct}%</Text>
-          <Text className="mt-2 text-base text-text-secondary">{verdict}</Text>
-        </View>
-
-        <Text className="mb-2 mt-6 text-base font-bold text-text-primary">Review</Text>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+        <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={{ alignItems: "center", borderRadius: 20, padding: 28, marginBottom: 20 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "rgba(255,255,255,0.8)" }}>Your score</Text>
+          <Text style={{ marginTop: 8, fontSize: 52, fontWeight: "800", color: "#ffffff" }}>{score}/{total}</Text>
+          <Text style={{ marginTop: 4, fontSize: 20, fontWeight: "700", color: "#ffffff" }}>{pct}%</Text>
+          <Text style={{ marginTop: 8, fontSize: 16, color: "rgba(255,255,255,0.9)" }}>{verdict}</Text>
+        </LinearGradient>
+        <Text style={{ marginBottom: 12, marginTop: 8, fontSize: 18, fontWeight: "700", color: colors.text }}>Review</Text>
         {quiz.questions.map((q, i) => {
           const userAns = answers[i];
           const correct = userAns === q.answer;
           return (
-            <View key={i} className="mb-3 rounded-2xl bg-white/70 p-4" style={CARD}>
-              <Text className="text-sm font-semibold text-text-primary">
-                {i + 1}. {q.question}
-              </Text>
+            <View key={i} style={{ marginBottom: 12, borderRadius: 16, backgroundColor: colors.cardGlass, padding: 16, borderWidth: 1, borderColor: colors.border, ...CARD_SHADOW }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>{i + 1}. {q.question}</Text>
               {q.options.map((opt, oi) => {
                 const isCorrect = oi === q.answer;
                 const isWrongPick = oi === userAns && !correct;
                 return (
-                  <View
-                    key={oi}
-                    className={`mt-2 flex-row items-center rounded-xl px-3 py-2 ${
-                      isCorrect
-                        ? "bg-green-100"
-                        : isWrongPick
-                          ? "bg-red-100"
-                          : "bg-leaf-50"
-                    }`}
-                  >
-                    <Text className="mr-2">
-                      {isCorrect ? "✅" : isWrongPick ? "❌" : "•"}
-                    </Text>
-                    <Text
-                      className={`flex-1 text-sm ${
-                        isCorrect
-                          ? "font-semibold text-green-700"
-                          : isWrongPick
-                            ? "text-red-700"
-                            : "text-text-primary"
-                      }`}
-                    >
-                      {opt}
-                    </Text>
+                  <View key={oi} style={{ marginTop: 8, flexDirection: "row", alignItems: "center", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: isCorrect ? colors.greenBg : isWrongPick ? colors.redBg : colors.input }}>
+                    <MaterialIcons name={isCorrect ? "check-circle" : isWrongPick ? "cancel" : "radio-button-unchecked"} size={18} color={isCorrect ? colors.greenText : isWrongPick ? colors.redText : colors.muted} style={{ marginRight: 8 }} />
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: isCorrect ? "600" : "400", color: isCorrect ? colors.greenText : isWrongPick ? colors.redText : colors.text }}>{opt}</Text>
                   </View>
                 );
               })}
-              {q.explanation ? (
-                <Text className="mt-2 text-xs italic text-text-secondary">
-                  {q.explanation}
-                </Text>
-              ) : null}
+              {q.explanation ? <Text style={{ marginTop: 8, fontSize: 12, fontStyle: "italic", color: colors.muted }}>{q.explanation}</Text> : null}
             </View>
           );
         })}
-
-        <View className="mt-4 flex-row gap-3">
-          <Pressable
-            onPress={retake}
-            className="flex-1 items-center justify-center rounded-2xl border border-leaf-200 py-4"
-          >
-            <Text className="text-base font-bold text-text-primary">Retake</Text>
+        <View style={{ marginTop: 16, flexDirection: "row", gap: 12 }}>
+          <Pressable onPress={() => { hapticMedium(); retake(); }} style={{ flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, borderWidth: 1, borderColor: colors.border, paddingVertical: 16, backgroundColor: colors.cardGlass }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Retake</Text>
           </Pressable>
-          <Pressable
-            onPress={restart}
-            className="flex-1 items-center justify-center rounded-2xl bg-leaf-300 py-4"
-          >
-            <Text className="text-base font-bold text-white">New Test</Text>
+          <Pressable onPress={() => { hapticMedium(); restart(); }} style={{ flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, overflow: "hidden" }}>
+            <LinearGradient colors={gradient} style={{ width: "100%", paddingVertical: 16, alignItems: "center", borderRadius: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#ffffff" }}>New Test</Text>
+            </LinearGradient>
           </Pressable>
         </View>
       </ScrollView>
     );
   }
 
-  // --------------------------- Setup -----------------------------
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerStyle={{ padding: 20, paddingBottom: 48 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text className="mb-2 text-sm font-medium text-text-primary">Test me from</Text>
-      <View className="flex-row gap-2">
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg, marginTop: 40 }} contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+      <Text style={{ marginBottom: 8, fontSize: 14, fontWeight: "500", color: colors.text }}>Test me from</Text>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         {SOURCES.map((s) => {
           const active = s.key === source;
           return (
-            <Pressable
-              key={s.key}
-              onPress={() => {
-                setSource(s.key);
-                setError(null);
-              }}
-              className={`flex-1 items-center rounded-2xl border px-3 py-3 ${
-                active ? "border-leaf-300 bg-leaf-200" : "border-leaf-100 bg-white/60"
-              }`}
+            <Pressable key={s.key} onPress={() => { setSource(s.key); setError(null); }}
+              style={{ flex: 1, alignItems: "center", borderRadius: 16, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12, borderColor: active ? colors.accentDark : colors.border, backgroundColor: active ? colors.accent : colors.card }}
             >
-              <Text className="text-2xl">{s.icon}</Text>
-              <Text
-                className={`mt-1 text-sm font-semibold ${
-                  active ? "text-white" : "text-text-primary"
-                }`}
-              >
-                {s.label}
-              </Text>
+              <MaterialIcons name={s.icon} size={24} color={active ? "#fff" : colors.text} />
+              <Text style={{ marginTop: 4, fontSize: 14, fontWeight: "600", color: active ? "#ffffff" : colors.text }}>{s.label}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      {/* Source-specific input */}
-      <View className="mt-6">
+      <View style={{ marginTop: 24 }}>
         {source === "notes" && (
           <>
-            <Text className="mb-2 text-sm font-medium text-text-primary">
-              Pick a note
-            </Text>
+            <Text style={{ marginBottom: 8, fontSize: 14, fontWeight: "500", color: colors.text }}>Pick a note</Text>
             {notes.length === 0 ? (
-              <View className="rounded-2xl bg-white/70 p-4" style={CARD}>
-                <Text className="text-sm text-text-secondary">
-                  You have no notes yet. Create one first, or test from a PDF or
-                  YouTube link.
-                </Text>
+              <View style={{ borderRadius: 16, backgroundColor: colors.card, padding: 16, ...CARD_SHADOW }}>
+                <Text style={{ fontSize: 14, color: colors.muted }}>You have no notes yet. Create one first, or test from a PDF or YouTube link.</Text>
               </View>
             ) : (
-              <View className="gap-2">
+              <View style={{ gap: 8 }}>
                 {notes.map((n) => {
                   const active = selectedNote?.id === n.id;
                   return (
-                    <Pressable
-                      key={n.id}
-                      onPress={() => setSelectedNote(n)}
-                      className={`rounded-2xl border p-4 ${
-                        active
-                          ? "border-leaf-300 bg-leaf-200"
-                          : "border-leaf-100 bg-white/70"
-                      }`}
-                      style={CARD}
+                    <Pressable key={n.id} onPress={() => setSelectedNote(n)}
+                      style={{ borderRadius: 16, borderWidth: 1, padding: 16, borderColor: active ? colors.accentDark : colors.border, backgroundColor: active ? colors.accent : colors.card, ...CARD_SHADOW }}
                     >
-                      <Text
-                        numberOfLines={1}
-                        className={`text-base font-semibold ${
-                          active ? "text-white" : "text-text-primary"
-                        }`}
-                      >
-                        {n.title}
-                      </Text>
+                      <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: "600", color: active ? "#ffffff" : colors.text }}>{n.title}</Text>
                     </Pressable>
                   );
                 })}
@@ -452,105 +282,61 @@ export default function TestScreen() {
 
         {source === "pdf" && (
           <>
-            <Text className="mb-2 text-sm font-medium text-text-primary">PDF file</Text>
-            <Pressable
-              onPress={pickPdf}
-              className="items-center rounded-2xl border border-dashed border-leaf-200 bg-white/60 p-6"
-            >
-              <Text className="text-3xl">📄</Text>
-              <Text className="mt-2 text-base font-semibold text-text-primary">
-                {pdf ? pdf.name : "Choose a PDF"}
-              </Text>
-              <Text className="mt-1 text-xs text-text-secondary">
-                {pdf ? "Tap to change" : "Text-based PDFs only (not scanned images)"}
-              </Text>
+            <Text style={{ marginBottom: 8, fontSize: 14, fontWeight: "500", color: colors.text }}>PDF file</Text>
+            <Pressable onPress={pickPdf} style={{ alignItems: "center", borderRadius: 16, borderWidth: 1, borderStyle: "dashed", borderColor: colors.border, backgroundColor: colors.card, padding: 24 }}>
+              <Text style={{ fontSize: 24 }}>📄</Text>
+              <Text style={{ marginTop: 8, fontSize: 16, fontWeight: "600", color: colors.text }}>{pdf ? pdf.name : "Choose a PDF"}</Text>
+              <Text style={{ marginTop: 4, fontSize: 12, color: colors.muted }}>{pdf ? "Tap to change" : "Text-based PDFs only (not scanned images)"}</Text>
             </Pressable>
           </>
         )}
 
         {source === "youtube" && (
           <>
-            <Text className="mb-2 text-sm font-medium text-text-primary">
-              YouTube link
-            </Text>
-            <TextInput
-              value={ytUrl}
-              onChangeText={setYtUrl}
-              placeholder="https://youtube.com/watch?v=..."
-              placeholderTextColor="#B1D3B9"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              className="rounded-xl border border-leaf-100 bg-white/60 px-4 py-3 text-base text-text-primary"
-            />
+            <Text style={{ marginBottom: 8, fontSize: 14, fontWeight: "500", color: colors.text }}>YouTube link</Text>
+            <TextInput value={ytUrl} onChangeText={setYtUrl} placeholder="https://youtube.com/watch?v=..." placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={inputStyle} />
           </>
         )}
       </View>
 
-      {/* Number of questions */}
-      <Text className="mb-2 mt-6 text-sm font-medium text-text-primary">
-        Number of questions
-      </Text>
-      <View className="flex-row gap-2">
+      <Text style={{ marginBottom: 8, marginTop: 24, fontSize: 14, fontWeight: "500", color: colors.text }}>Number of questions</Text>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         {COUNTS.map((c) => {
           const active = c === numQuestions;
           return (
-            <Pressable
-              key={c}
-              onPress={() => setNumQuestions(c)}
-              className={`flex-1 items-center rounded-xl border py-3 ${
-                active ? "border-leaf-300 bg-leaf-200" : "border-leaf-100 bg-white/60"
-              }`}
-            >
-              <Text
-                className={`text-base font-bold ${
-                  active ? "text-white" : "text-text-primary"
-                }`}
-              >
-                {c}
-              </Text>
+            <Pressable key={c} onPress={() => { hapticMedium(); setNumQuestions(c); }}
+              style={{ flex: 1, alignItems: "center", borderRadius: 14, borderWidth: active ? 2 : 1, paddingVertical: 14, borderColor: active ? colors.accentDark : colors.border, backgroundColor: active ? colors.accent : colors.cardGlass }}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: active ? "#ffffff" : colors.text }}>{c}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      {/* Difficulty */}
-      <Text className="mb-2 mt-6 text-sm font-medium text-text-primary">Difficulty</Text>
-      <View className="flex-row gap-2">
+      <Text style={{ marginBottom: 8, marginTop: 24, fontSize: 14, fontWeight: "500", color: colors.text }}>Difficulty</Text>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         {DIFFICULTIES.map((d) => {
           const active = d === difficulty;
           return (
-            <Pressable
-              key={d}
-              onPress={() => setDifficulty(d)}
-              className={`flex-1 items-center rounded-xl border py-3 ${
-                active ? "border-leaf-300 bg-leaf-200" : "border-leaf-100 bg-white/60"
-              }`}
-            >
-              <Text
-                className={`text-sm font-semibold capitalize ${
-                  active ? "text-white" : "text-text-primary"
-                }`}
-              >
-                {d}
-              </Text>
+            <Pressable key={d} onPress={() => { hapticMedium(); setDifficulty(d); }}
+              style={{ flex: 1, alignItems: "center", borderRadius: 14, borderWidth: active ? 2 : 1, paddingVertical: 14, borderColor: active ? colors.accentDark : colors.border, backgroundColor: active ? colors.accent : colors.cardGlass }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", textTransform: "capitalize", color: active ? "#ffffff" : colors.text }}>{d}</Text>
             </Pressable>
           );
         })}
       </View>
 
       {error ? (
-        <View className="mt-5 rounded-xl border border-red-300 bg-red-50 p-3">
-          <Text className="text-sm text-red-500">{error}</Text>
+        <View style={{ marginTop: 20, borderRadius: 14, borderWidth: 1, borderColor: colors.errorBorder, backgroundColor: colors.errorBg, padding: 14 }}>
+          <Text style={{ fontSize: 14, color: colors.errorText }}>{error}</Text>
         </View>
       ) : null}
 
-      <Pressable
-        onPress={onGenerate}
-        className="mt-7 h-14 items-center justify-center rounded-2xl bg-leaf-300 active:opacity-80"
-        style={CARD}
-      >
-        <Text className="text-base font-bold text-white">Generate Test</Text>
+      <Pressable onPress={() => { hapticMedium(); onGenerate(); }}
+        style={{ marginTop: 28, borderRadius: 16, overflow: "hidden", shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6 }}>
+        <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={{ height: 56, alignItems: "center", justifyContent: "center", borderRadius: 16 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: "#ffffff" }}>✨ Generate Test</Text>
+        </LinearGradient>
       </Pressable>
     </ScrollView>
   );

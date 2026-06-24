@@ -1,241 +1,227 @@
-import { useCallback, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { Link, Stack, useFocusEffect, useRouter } from "expo-router";
-import { deleteNote, getNotes, updateNote, type Note } from "../lib/notes";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, Image, ScrollView, Text, View } from "react-native";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Header } from "../components/Header";
+import { AddFriendModal } from "../components/AddFriendModal";
+import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
+import { hapticMedium } from "../lib/haptics";
+import { getNotes, getWeeklyActivity, type Note, type WeekDay } from "../lib/notes";
+import { getFriends, subscribeFriends, syncAcceptedRequests, updateLastSeen, type Friend } from "../lib/friends";
+import { getFlashcardSets, type FlashcardSet } from "../lib/flashcards";
 
-function formatDate(ts: number) {
-  return new Date(ts).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+function ProductivityGraph({ colors, weekData }: { colors: any; weekData: WeekDay[] }) {
+  const max = Math.max(...weekData.map((d) => d.count), 1);
+  const today = new Date().getDay();
+  const todayIdx = today === 0 ? 6 : today - 1;
+  const total = weekData.reduce((a, b) => a + b.count, 0);
+
+  return (
+    <View style={{ backgroundColor: colors.card, borderRadius: 18, padding: 20, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <View>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>Activity</Text>
+          <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>{total} this week</Text>
+        </View>
+        <View style={{ backgroundColor: colors.accentLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.accent }}>{total}</Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 80, gap: 6 }}>
+        {weekData.map((day, i) => {
+          const h = max > 0 ? (day.count / max) * 60 : 0;
+          return (
+            <View key={i} style={{ alignItems: "center", flex: 1 }}>
+              <View style={{ width: 20, height: h || 4, borderRadius: 4, backgroundColor: i === todayIdx ? colors.accent : colors.border }} />
+            </View>
+          );
+        })}
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
+        {weekData.map((day, i) => (
+          <Text key={i} style={{ flex: 1, textAlign: "center", fontSize: 10, fontWeight: i === todayIdx ? "700" : "500", color: i === todayIdx ? colors.accent : colors.muted }}>{day.label}</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function AddFriendIcon({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable onPress={onPress}>
+      <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, borderWidth: 1.5, borderColor: colors.border, borderStyle: "dashed", alignItems: "center", justifyContent: "center" }}>
+        <MaterialIcons name="person-add" size={22} color={colors.accent} />
+      </View>
+    </Pressable>
+  );
+}
+
+function FriendAvatar({ friend, onPress }: { friend: Friend; onPress: () => void }) {
+  const { colors } = useTheme();
+  const initials = friend.username.slice(0, 1).toUpperCase();
+  return (
+    <Pressable onPress={onPress}>
+      <View>
+        <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          {friend.photoURL ? (
+            <Image source={{ uri: friend.photoURL }} style={{ width: 58, height: 58, borderRadius: 16 }} />
+          ) : (
+            <Text style={{ fontSize: 18, fontWeight: "600", color: colors.accent }}>{initials}</Text>
+          )}
+        </View>
+        {friend.online && (
+          <View style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: "#64C878", borderWidth: 2.5, borderColor: colors.card }} />
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+function PinnedNote({ note, onPress }: { note: Note; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable onPress={onPress} style={{ marginBottom: 10 }}>
+      <View style={{ backgroundColor: colors.input, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: colors.border }}>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ width: 4, height: 24, borderRadius: 2, backgroundColor: colors.accent }} />
+          <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "500", color: colors.text, flex: 1 }}>{note.title}</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={18} color={colors.muted} />
+      </View>
+    </Pressable>
+  );
 }
 
 export default function Home() {
+  const { colors } = useTheme();
+  const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>([]);
+  const [weekData, setWeekData] = useState<WeekDay[]>([]);
+  const [addFriendVisible, setAddFriendVisible] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [renameTarget, setRenameTarget] = useState<Note | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
   const router = useRouter();
-  const { signOut } = useAuth();
 
-  function confirmSignOut() {
-    Alert.alert("Sign out", "Sign out of your account?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: () => signOut().catch((e) => console.error(e)),
-      },
+  const load = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      getNotes().then(setNotes).catch(() => {}),
+      getWeeklyActivity().then(setWeekData).catch(() => {}),
+      getFlashcardSets().then(setFlashcardSets).catch(() => {}),
     ]);
-  }
-
-  const load = useCallback(() => {
-    getNotes()
-      .then(setNotes)
-      .catch((e) => console.error(e))
-      .finally(() => setLoading(false));
+    setLoading(false);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  useEffect(() => {
+    if (!user) return;
+    updateLastSeen().catch(() => {});
+    syncAcceptedRequests().catch(() => {});
 
-  const filtered = search.trim()
-    ? notes.filter((n) =>
-        n.title.toLowerCase().includes(search.toLowerCase())
-      )
-    : notes;
+    const interval = setInterval(() => {
+      getFriends().then(setFriends).catch(() => {});
+    }, 30000);
 
-  function onLongPress(note: Note) {
-    Alert.alert(note.title, "What would you like to do?", [
-      {
-        text: "Rename",
-        onPress: () => {
-          setRenameTarget(note);
-          setRenameDraft(note.title);
-        },
-      },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () =>
-          Alert.alert("Delete note", "This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Delete",
-              style: "destructive",
-              onPress: async () => {
-                await deleteNote(note.id);
-                load();
-              },
-            },
-          ]),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
+    const unsub = subscribeFriends(setFriends);
+    return () => { unsub(); clearInterval(interval); };
+  }, [user]);
 
-  async function saveRename() {
-    if (renameTarget && renameDraft.trim()) {
-      await updateNote(renameTarget.id, { title: renameDraft.trim() });
-      load();
-    }
-    setRenameTarget(null);
-  }
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const pinnedNotes = notes.filter((n) => n.pinned);
+  const pinnedFlashcards = flashcardSets.filter((s) => s.pinned);
+  const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
 
   return (
-    <View className="flex-1 bg-background px-4 pt-4">
-      <Stack.Screen
-        options={{
-          headerLeft: () => (
-            <Pressable onPress={() => router.push("/test")} hitSlop={10}>
-              <Text className="text-base font-semibold text-leaf-300">📝 Test</Text>
-            </Pressable>
-          ),
-          headerRight: () => (
-            <Pressable onPress={confirmSignOut} hitSlop={10}>
-              <Text className="text-base font-semibold text-leaf-300">
-                Sign out
-              </Text>
-            </Pressable>
-          ),
-        }}
-      />
-      {notes.length > 0 && (
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search notes…"
-          placeholderTextColor="#B1D3B9"
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          className="mb-4 rounded-xl border border-leaf-100 bg-white/60 px-4 py-3 text-base text-text-primary"
-        />
-      )}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <Stack.Screen options={{ headerShown: false }} />
 
-      {notes.length === 0 && !loading ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-leaf-100">
-            <Text className="text-4xl text-leaf-300">📝</Text>
-          </View>
-          <Text className="text-center text-lg font-semibold text-text-primary">
-            No notes yet
-          </Text>
-          <Text className="mt-2 text-center text-sm text-leaf-200">
-            Paste a YouTube link and let AI turn the video into notes.
-          </Text>
-        </View>
-      ) : filtered.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-center text-base text-leaf-200">
-            No notes match "{search}"
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ paddingBottom: 96 }}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => router.push(`/note/${item.id}`)}
-              onLongPress={() => onLongPress(item)}
-              className="mb-3 rounded-2xl bg-white/70 p-4 active:opacity-70"
-              style={{
-                shadowColor: "#659287",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              <Text
-                numberOfLines={2}
-                className="text-base font-semibold text-text-primary"
-              >
-                {item.title}
-              </Text>
-              <Text className="mt-1 text-xs text-leaf-200">
-                {formatDate(item.created_at)}
-              </Text>
-            </Pressable>
-          )}
-        />
-      )}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+          <Header title="HOME" onProfilePress={() => router.push("/profile")} />
 
-      <Link href="/new" asChild>
-        <Pressable className="absolute bottom-6 right-5 h-14 items-center justify-center rounded-full bg-leaf-200 px-6 active:opacity-80"
-          style={{
-            shadowColor: "#659287",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-        >
-          <Text className="text-base font-bold text-white">＋ New Note</Text>
-        </Pressable>
-      </Link>
-
-      <Modal
-        visible={!!renameTarget}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRenameTarget(null)}
-      >
-        <View className="flex-1 items-center justify-center bg-leaf-300/40 px-6">
-          <View className="w-full rounded-2xl bg-white p-5"
-            style={{
-              shadowColor: "#659287",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 8,
-            }}
-          >
-            <Text className="mb-4 text-lg font-bold text-text-primary">
-              Rename note
-            </Text>
-            <TextInput
-              value={renameDraft}
-              onChangeText={setRenameDraft}
-              onSubmitEditing={saveRename}
-              autoFocus
-              className="rounded-xl border border-leaf-100 bg-leaf-50 px-4 py-3 text-base text-text-primary"
-            />
-            <View className="mt-4 flex-row gap-3">
-              <Pressable
-                onPress={() => setRenameTarget(null)}
-                className="flex-1 items-center rounded-xl border border-leaf-100 py-3"
-              >
-                <Text className="text-sm font-semibold text-leaf-200">
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={saveRename}
-                className="flex-1 items-center rounded-xl bg-leaf-200 py-3"
-              >
-                <Text className="text-sm font-semibold text-white">Save</Text>
-              </Pressable>
+          {/* Friends */}
+          <View style={{ marginHorizontal: 20, marginTop: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted, letterSpacing: 0.5 }}>FRIENDS</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, alignItems: "center" }}>
+              <AddFriendIcon onPress={() => { hapticMedium(); setAddFriendVisible(true); }} />
+              {loading ? (
+                <>
+                  <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, opacity: 0.4 }} />
+                  <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, opacity: 0.4 }} />
+                  <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, opacity: 0.4 }} />
+                </>
+              ) : (
+                <>
+                  {sortedFriends.map((friend) => (
+                    <FriendAvatar key={friend.uid} friend={friend} onPress={() => { hapticMedium(); router.push(`/chat/${friend.uid}`); }} />
+                  ))}
+                  {friends.length === 0 && (
+                    <>
+                      <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, opacity: 0.3 }} />
+                      <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, opacity: 0.3 }} />
+                    </>
+                  )}
+                </>
+              )}
+            </ScrollView>
           </View>
-        </View>
-      </Modal>
-    </View>
+
+          {/* Activity */}
+          <View style={{ marginHorizontal: 20, marginTop: 24 }}>
+            <ProductivityGraph colors={colors} weekData={weekData} />
+          </View>
+
+          {/* Pinned */}
+          <View style={{ marginHorizontal: 20, marginTop: 24 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
+              <MaterialIcons name="push-pin" size={12} color={colors.accent} />
+              <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted, letterSpacing: 0.5 }}>PINNED</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+            </View>
+
+            {loading ? (
+              <View style={{ gap: 10 }}>
+                <View style={{ height: 52, borderRadius: 12, backgroundColor: colors.input, opacity: 0.4 }} />
+                <View style={{ height: 52, borderRadius: 12, backgroundColor: colors.input, opacity: 0.4 }} />
+              </View>
+            ) : pinnedNotes.length === 0 && pinnedFlashcards.length === 0 ? (
+              <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 24, alignItems: "center", borderWidth: 1, borderColor: colors.border }}>
+                <MaterialIcons name="push-pin" size={28} color={colors.border} />
+                <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>No pinned items</Text>
+              </View>
+            ) : (
+              <>
+                {pinnedNotes.map((note) => (
+                  <PinnedNote key={note.id} note={note} onPress={() => router.push(`/note/${note.id}`)} />
+                ))}
+                {pinnedFlashcards.map((fc) => (
+                  <Pressable key={fc.id} onPress={() => router.push("/flashcards")} style={{ marginBottom: 10 }}>
+                    <View style={{ backgroundColor: colors.input, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: colors.border }}>
+                      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <View style={{ width: 4, height: 24, borderRadius: 2, backgroundColor: colors.accent }} />
+                        <MaterialIcons name="style" size={16} color={colors.accent} />
+                        <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "500", color: colors.text, flex: 1 }}>{fc.title}</Text>
+                        <Text style={{ fontSize: 11, color: colors.muted }}>{fc.cards.length} cards</Text>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={18} color={colors.muted} />
+                    </View>
+                  </Pressable>
+                ))}
+              </>
+            )}
+          </View>
+        </ScrollView>
+
+        <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
+      </View>
+    </GestureHandlerRootView>
   );
 }

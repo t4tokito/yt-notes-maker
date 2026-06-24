@@ -1,0 +1,33 @@
+{
+  "name": "notes-maker-modern-ui",
+  "version": "1.0.0",
+  "description": "Modern premium UI for Notes Maker app with futuristic dark theme and neon pink accents",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "mobile",
+    "ui",
+    "design-system",
+    "modern",
+    "dark-theme",
+    "neon-pink"
+  ],
+  "author": "Notes Maker Team",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-native": "^0.81.5",
+    "expo-router": "^6.0.24",
+    "expo-linear-gradient": "^14.0.0",
+    "expo-haptics": "^14.0.0",
+    "expo-image-picker": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10"
+  },
+  "private": true
+}
