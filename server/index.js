@@ -119,9 +119,12 @@ function buildPrompt(transcript, style) {
       role: "system",
       content:
         "You are an expert note-taker. You turn raw YouTube video transcripts into clear, well-structured notes. " +
-        "Output ONLY Markdown notes — no preamble, no 'Here are your notes', no closing remarks. " +
         "The transcript may contain transcription errors; infer the intended meaning. " +
-        instruction,
+        instruction + "\n\n" +
+        "IMPORTANT: Start your response with a title line in this exact format:\n" +
+        "TITLE: <short descriptive title, max 80 chars>\n" +
+        "Then put the markdown notes after a blank line. " +
+        "No preamble, no 'Here are your notes', no closing remarks.",
     },
     {
       role: "user",
@@ -214,7 +217,17 @@ async function withRetry(fn) {
 }
 
 function generateNotes(transcript, style) {
-  return withRetry(() => callOpenRouter(transcript, style));
+  return withRetry(async () => {
+    const text = await callOpenRouter(transcript, style);
+    let title = "Untitled Note";
+    let notes = text;
+    const titleMatch = text.match(/^TITLE:\s*(.+)$/m);
+    if (titleMatch) {
+      title = titleMatch[1].trim().slice(0, 80);
+      notes = text.replace(/^TITLE:\s*.+\n?/, "").trim();
+    }
+    return { title, notes };
+  });
 }
 
 // ----------------------------- Quiz generation -----------------------------
@@ -341,13 +354,14 @@ app.post("/api/notes", async (req, res) => {
       truncated = true;
     }
 
-    const notes = await generateNotes(transcript, style);
+    const { title, notes } = await generateNotes(transcript, style);
 
     return res.json({
       videoId,
       url: `https://www.youtube.com/watch?v=${videoId}`,
       model: OPENROUTER_MODEL,
       truncated,
+      title,
       notes,
     });
   } catch (err) {
