@@ -93,7 +93,7 @@ export function BottomNav() {
             <Pressable
               key={tab.key}
               onPress={() => { if (!active) { hapticLight(); router.push(tab.route); } }}
-              style={{ flex: 1, alignItems: "center", justifyContent: "center", height: 44, opacity: active ? 0.5 : 1 }}
+              style={{ flex: 1, alignItems: "center", justifyContent: "center", height: 44 }}
             >
               <View style={{ alignItems: "center", justifyContent: "center" }}>
                 {renderIcon(tab.key, active)}

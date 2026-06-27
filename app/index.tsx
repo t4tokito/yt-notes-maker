@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, Image, ScrollView, Text, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Header } from "../components/Header";
@@ -74,7 +74,7 @@ function FriendAvatar({ friend, onPress }: { friend: Friend; onPress: () => void
           )}
         </View>
         {friend.online && (
-          <View style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: "#64C878", borderWidth: 2.5, borderColor: colors.card }} />
+          <View style={{ position: "absolute", bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.greenText, borderWidth: 2.5, borderColor: colors.card }} />
         )}
       </View>
     </Pressable>
@@ -137,7 +137,7 @@ export default function Home() {
   const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
@@ -222,6 +222,6 @@ export default function Home() {
 
         <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }

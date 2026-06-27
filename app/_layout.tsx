@@ -1,4 +1,3 @@
-import "../global.css";
 import { useEffect, useState } from "react";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -126,6 +125,8 @@ function RootNavigator() {
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="pdf-notes" options={{ headerShown: false }} />
+      <Stack.Screen name="flashcards" options={{ headerShown: false }} />
+      <Stack.Screen name="explain" options={{ headerShown: false }} />
       <Stack.Screen name="ai-tools" options={{ headerShown: false }} />
     </Stack>
   );
@@ -140,11 +141,12 @@ function AppShell() {
   const onGroupScreen = segments[0] === "group" || segments[0] === "create-group";
   const onUserScreen = segments[0] === "user";
   const onNoteDetail = segments[0] === "note";
+  const onTestScreen = segments[0] === "test";
 
   return (
     <View style={{ flex: 1 }}>
       <RootNavigator />
-      {user && !onLoginScreen && !onChatDetail && !isNewScreen && !onGroupScreen && !onUserScreen && !onNoteDetail && <BottomNav />}
+      {user && !onLoginScreen && !onChatDetail && !isNewScreen && !onGroupScreen && !onUserScreen && !onNoteDetail && !onTestScreen && <BottomNav />}
       <UsernamePrompt />
     </View>
   );

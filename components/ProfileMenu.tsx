@@ -26,7 +26,7 @@ export function ProfileMenu() {
             width: 52,
             height: 52,
             borderRadius: 26,
-            backgroundColor: "#fff",
+            backgroundColor: colors.white,
             alignItems: "center",
             justifyContent: "center",
             overflow: "hidden",
@@ -35,7 +35,7 @@ export function ProfileMenu() {
           {profile?.photoURL ? (
             <Image source={{ uri: profile.photoURL }} style={{ width: 52, height: 52, borderRadius: 26 }} />
           ) : (
-            <MaterialIcons name="person" size={28} color="#DDAAAA" />
+            <MaterialIcons name="person" size={28} color={colors.avatarFallback} />
           )}
         </View>
       </Pressable>

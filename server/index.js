@@ -567,7 +567,7 @@ app.post("/api/ai", async (req, res) => {
     }
 
     const material = prepareSource(text);
-    if (material.length < 10) {
+    if (tool !== "explain" && material.length < 10) {
       return res.status(422).json({ error: "Text is too short." });
     }
 

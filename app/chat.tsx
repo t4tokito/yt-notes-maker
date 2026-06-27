@@ -75,12 +75,12 @@ export default function ChatListScreen() {
                       )}
                     </View>
                     {item.online && (
-                      <View style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: "#64C878", borderWidth: 2, borderColor: colors.card }} />
+                      <View style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.greenText, borderWidth: 2, borderColor: colors.card }} />
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{item.username}</Text>
-                    <Text style={{ fontSize: 12, color: item.online ? "#64C878" : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
+                    <Text style={{ fontSize: 12, color: item.online ? colors.greenText : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
                   </View>
                   <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
                 </Pressable>

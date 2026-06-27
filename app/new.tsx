@@ -54,11 +54,10 @@ export default function NewNote() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={{ marginTop: 40, marginBottom: 24 }}>
-        <Pressable onPress={() => router.back()} style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <MaterialIcons name="arrow-back" size={18} color={colors.accent} />
-          <Text style={{ fontSize: 14, color: colors.accent, fontWeight: "600" }}>Back</Text>
+        <Pressable onPress={() => router.back()} style={{ marginBottom: 16, width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+          <MaterialIcons name="arrow-back" size={20} color={colors.text} />
         </Pressable>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: colors.text }}>Generate Notes</Text>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>Generate Notes</Text>
         <Text style={{ marginTop: 4, fontSize: 14, color: colors.muted }}>Paste a YouTube video link to create AI-powered notes</Text>
       </View>
 
@@ -105,16 +104,16 @@ export default function NewNote() {
       )}
 
       <Pressable onPress={onGenerate} disabled={loading}
-        style={{ marginTop: 28, height: 56, borderRadius: 16, backgroundColor: loading ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center", shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 }}>
+        style={{ marginTop: 28, height: 52, borderRadius: 14, backgroundColor: loading ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center", shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 }}>
         {loading ? (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <ActivityIndicator color="#fff" />
-            <Text style={{ marginLeft: 12, fontSize: 16, fontWeight: "700", color: "#fff" }}>Generating...</Text>
+            <Text style={{ marginLeft: 12, fontSize: 15, fontWeight: "700", color: "#fff" }}>Generating...</Text>
           </View>
         ) : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <MaterialIcons name="auto-fix-high" size={20} color="#fff" />
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>Generate Notes</Text>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Generate Notes</Text>
           </View>
         )}
       </Pressable>

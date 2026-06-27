@@ -1,20 +1,55 @@
 import { Dimensions, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../lib/theme";
 import { hapticMedium } from "../lib/haptics";
 import { Header } from "../components/Header";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: W } = Dimensions.get("window");
+const GAP = 20;
+const CARD = (W - 40 - GAP) / 2;
+
+function ToolCard({ icon, color, label, sub, route }: { icon: string; color: string; label: string; sub: string; route: string }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => { hapticMedium(); router.push(route as any); }}
+      style={({ pressed }) => ({
+        width: CARD,
+        height: 270,
+        backgroundColor: colors.card,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        padding: 22,
+        justifyContent: "space-between",
+        opacity: pressed ? 0.7 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
+    >
+      <View style={{ width: 65, height: 65, borderRadius: 18, backgroundColor: color + "20", alignItems: "center", justifyContent: "center" }}>
+        <MaterialIcons name={icon as any} size={30} color={color} />
+      </View>
+      <View>
+        <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{label}</Text>
+        <Text numberOfLines={1} style={{ marginTop: 4, fontSize: 13, color: colors.muted }}>{sub}</Text>
+      </View>
+      <View style={{ alignSelf: "flex-end" }}>
+        <MaterialIcons name="arrow-forward" size={18} color={colors.muted} />
+      </View>
+    </Pressable>
+  );
+}
 
 export default function CreateScreen() {
   const { colors, gradient } = useTheme();
   const router = useRouter();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
         <Header title="CREATE" onProfilePress={() => router.push("/profile")} />
@@ -24,7 +59,7 @@ export default function CreateScreen() {
           {/* Hero */}
           <Pressable
             onPress={() => { hapticMedium(); router.push("/new"); }}
-            style={({ pressed }) => ({ marginHorizontal: 20, marginBottom: 20, borderRadius: 20, overflow: "hidden", transform: [{ scale: pressed ? 0.98 : 1 }] })}
+            style={({ pressed }) => ({ marginHorizontal: 20, marginBottom: 28, borderRadius: 20, overflow: "hidden", transform: [{ scale: pressed ? 0.98 : 1 }] })}
           >
             <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 24 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -45,46 +80,23 @@ export default function CreateScreen() {
             </LinearGradient>
           </Pressable>
 
-          {/* Tools Grid */}
-          <View style={{ marginHorizontal: 20, flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {/* Quiz */}
-            <Pressable
-              onPress={() => { hapticMedium(); router.push("/test"); }}
-              style={({ pressed }) => ({ width: (SCREEN_WIDTH - 50) / 2, backgroundColor: colors.card, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: pressed ? "#64C878" : colors.border, transform: [{ scale: pressed ? 0.97 : 1 }] })}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#64C878" + "18", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                <MaterialIcons name="quiz" size={20} color="#64C878" />
-              </View>
-              <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>Test</Text>
-              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3 }}>Test preparation</Text>
-            </Pressable>
+          {/* Tools */}
+          <View style={{ marginHorizontal: 20, marginTop: 16 }}>
+            <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: GAP }}>
+              <ToolCard icon="quiz" color={colors.greenText} label="Test" sub="Quiz yourself with AI" route="/test" />
+              <View style={{ width: GAP }} />
+              <ToolCard icon="picture-as-pdf" color={colors.toolPdf} label="PDF Notes" sub="From any document" route="/pdf-notes" />
+            </View>
 
-            {/* PDF */}
-            <Pressable
-              onPress={() => { hapticMedium(); router.push("/pdf-notes"); }}
-              style={({ pressed }) => ({ width: (SCREEN_WIDTH - 50) / 2, backgroundColor: colors.card, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: pressed ? "#E85D5D" : colors.border, transform: [{ scale: pressed ? 0.97 : 1 }] })}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#E85D5D" + "18", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                <MaterialIcons name="picture-as-pdf" size={20} color="#E85D5D" />
-              </View>
-              <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>PDF Notes</Text>
-              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3 }}>From documents</Text>
-            </Pressable>
-
-            {/* Flashcards */}
-            <Pressable
-              onPress={() => { hapticMedium(); router.push("/flashcards"); }}
-              style={({ pressed }) => ({ width: (SCREEN_WIDTH - 50) / 2, backgroundColor: colors.card, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: pressed ? "#9B8A70" : colors.border, transform: [{ scale: pressed ? 0.97 : 1 }] })}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "#9B8A70" + "18", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                <MaterialIcons name="style" size={20} color="#9B8A70" />
-              </View>
-              <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>Flashcards</Text>
-              <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3 }}>Auto-generated</Text>
-            </Pressable>
+            <View style={{ flexDirection: "row", justifyContent: "center" }}>
+              <ToolCard icon="style" color={colors.toolFlashcards} label="Flashcards" sub="Auto-generated cards" route="/flashcards" />
+              <View style={{ width: GAP }} />
+              <ToolCard icon="lightbulb" color={colors.toolExplain} label="Explain" sub="Any topic explained" route="/explain" />
+            </View>
           </View>
+
         </ScrollView>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }

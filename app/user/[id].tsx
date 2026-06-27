@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
@@ -162,7 +162,7 @@ export default function OtherProfileScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
@@ -214,6 +214,6 @@ export default function OtherProfileScreen() {
           </View>
         </ScrollView>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }

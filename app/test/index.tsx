@@ -32,7 +32,7 @@ const COUNTS = [5, 10, 15];
 const DIFFICULTIES: QuizDifficulty[] = ["easy", "medium", "hard"];
 
 const CARD_SHADOW = {
-  shadowColor: "#659287",
+  shadowColor: "#000000",
   shadowOffset: { width: 0, height: 2 },
   shadowOpacity: 0.08,
   shadowRadius: 8,
@@ -161,7 +161,6 @@ export default function TestScreen() {
                 <Pressable key={i} onPress={() => {
                   hapticMedium();
                   const next = [...answers]; next[current] = i; setAnswers(next);
-                  if (next.every((a) => a !== null)) setTimeout(() => setPhase("result"), 300);
                 }}
                   style={{ flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: active ? 2 : 1, padding: 16, borderColor: active ? colors.accentDark : colors.border, backgroundColor: active ? colors.accent : colors.cardGlass, ...CARD_SHADOW }}
                 >
@@ -180,9 +179,17 @@ export default function TestScreen() {
               <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>Back</Text>
             </Pressable>
           )}
-          {!isLast && (
+          {!isLast ? (
             <Pressable onPress={() => setCurrent((c) => c + 1)} style={{ flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.accent, paddingVertical: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: "#ffffff" }}>Next</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => setPhase("result")}
+              disabled={picked === null}
+              style={{ flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: picked === null ? colors.muted : colors.accent, paddingVertical: 16 }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#ffffff" }}>Submit</Text>
             </Pressable>
           )}
         </View>

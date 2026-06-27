@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View, Share } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -67,7 +67,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
@@ -145,7 +145,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Notes Grid */}
-          <View style={{ marginHorizontal: 20, marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
+          <View style={{ marginHorizontal: 20, marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
             {notes.length === 0 ? (
               <View style={{ width: "100%", padding: 32, alignItems: "center" }}>
                 <MaterialIcons name="note-add" size={32} color={colors.border} />
@@ -156,7 +156,7 @@ export default function ProfileScreen() {
                 <Pressable
                   key={note.id}
                   onPress={() => router.push(`/note/${note.id}`)}
-                  style={{ width: "32.66%", aspectRatio: 1, backgroundColor: colors.card, borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}
+                  style={{ width: "32.66%", aspectRatio: 1, backgroundColor: colors.card, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}
                 >
                   <View style={{ flex: 1, padding: 8, justifyContent: "flex-end" }}>
                     <Text numberOfLines={3} style={{ fontSize: 11, fontWeight: "600", color: colors.text, lineHeight: 14 }}>{note.title}</Text>
@@ -175,6 +175,6 @@ export default function ProfileScreen() {
       </View>
 
       <EditProfileModal visible={editVisible} onClose={() => setEditVisible(false)} />
-    </GestureHandlerRootView>
+    </View>
   );
 }

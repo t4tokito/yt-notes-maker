@@ -20,6 +20,7 @@ export type Group = {
   name: string;
   members: string[];
   createdBy: string;
+  subadmins: string[];
   createdAt: number;
   photoURL?: string | null;
 };
@@ -50,6 +51,7 @@ export async function createGroup(name: string, memberUids: string[]): Promise<s
     members: allMembers,
     createdBy: uid,
     createdByUsername: myData?.username || "",
+    subadmins: [],
     createdAt: serverTimestamp(),
   });
 
@@ -79,6 +81,7 @@ export async function getMyGroups(): Promise<Group[]> {
         name: data.name || "Group",
         members: data.members || [],
         createdBy: data.createdBy || "",
+        subadmins: data.subadmins || [],
         createdAt: data.createdAt?.toMillis?.() || Date.now(),
         photoURL: data.photoURL || null,
       });
@@ -193,8 +196,10 @@ export async function leaveGroup(groupId: string): Promise<void> {
   await deleteDoc(doc(db, "users", uid, "groups", groupId)).catch(() => {});
   const snap = await getDoc(doc(db, "groups", groupId));
   if (snap.exists()) {
-    const members = (snap.data().members || []).filter((m: string) => m !== uid);
-    await updateDoc(doc(db, "groups", groupId), { members });
+    const data = snap.data();
+    const members = (data.members || []).filter((m: string) => m !== uid);
+    const subadmins = (data.subadmins || []).filter((s: string) => s !== uid);
+    await updateDoc(doc(db, "groups", groupId), { members, subadmins });
   }
 }
 
@@ -202,7 +207,25 @@ export async function kickMember(groupId: string, memberUid: string): Promise<vo
   await deleteDoc(doc(db, "users", memberUid, "groups", groupId)).catch(() => {});
   const snap = await getDoc(doc(db, "groups", groupId));
   if (snap.exists()) {
-    const members = (snap.data().members || []).filter((m: string) => m !== memberUid);
-    await updateDoc(doc(db, "groups", groupId), { members });
+    const data = snap.data();
+    const members = (data.members || []).filter((m: string) => m !== memberUid);
+    const subadmins = (data.subadmins || []).filter((s: string) => s !== memberUid);
+    await updateDoc(doc(db, "groups", groupId), { members, subadmins });
   }
+}
+
+export async function setSubadmin(groupId: string, memberUid: string): Promise<void> {
+  const snap = await getDoc(doc(db, "groups", groupId));
+  if (!snap.exists()) return;
+  const subadmins = snap.data().subadmins || [];
+  if (!subadmins.includes(memberUid)) {
+    await updateDoc(doc(db, "groups", groupId), { subadmins: [...subadmins, memberUid] });
+  }
+}
+
+export async function removeSubadmin(groupId: string, memberUid: string): Promise<void> {
+  const snap = await getDoc(doc(db, "groups", groupId));
+  if (!snap.exists()) return;
+  const subadmins = (snap.data().subadmins || []).filter((s: string) => s !== memberUid);
+  await updateDoc(doc(db, "groups", groupId), { subadmins });
 }

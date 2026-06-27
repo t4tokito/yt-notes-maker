@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Image, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -9,10 +9,11 @@ import { useTheme } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { sendGroupMessage, subscribeGroupMessages, updateGroup, getGroupMembers, leaveGroup, kickMember, editGroupMessage, deleteGroupMessage, type GroupMessage } from "../../lib/groups";
+import { sendGroupMessage, subscribeGroupMessages, updateGroup, getGroupMembers, leaveGroup, kickMember, editGroupMessage, deleteGroupMessage, setSubadmin, removeSubadmin, type GroupMessage } from "../../lib/groups";
 import { getFriends, type Friend } from "../../lib/friends";
+import { GifPicker } from "../../components/GifPicker";
 
-type GroupInfo = { name: string; members: string[]; createdBy: string; photoURL?: string | null };
+type GroupInfo = { name: string; members: string[]; createdBy: string; subadmins: string[]; photoURL?: string | null };
 
 export default function GroupChatScreen() {
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
@@ -37,15 +38,31 @@ export default function GroupChatScreen() {
   const [selectedMsg, setSelectedMsg] = useState<GroupMessage | null>(null);
   const [editVisible, setEditVisible] = useState(false);
   const [editText, setEditText] = useState("");
+  const [gifVisible, setGifVisible] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) => { setKbOpen(true); setKbHeight(e.endCoordinates.height); });
+    const hide = Keyboard.addListener("keyboardDidHide", () => { setKbOpen(false); setKbHeight(0); });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const isCreator = groupInfo?.createdBy === user?.uid;
+  const isSubadmin = !!groupInfo?.subadmins?.includes(user?.uid || "");
+  const hasAdminPerms = isCreator || isSubadmin;
 
   async function openMembersList() {
     if (!groupInfo) return;
     setMenuVisible(false);
     try {
       const list = await getGroupMembers(groupInfo.members);
-      setMembersList(list);
+      const sorted = [...list].sort((a, b) => {
+        if (a.uid === groupInfo.createdBy) return -1;
+        if (b.uid === groupInfo.createdBy) return 1;
+        return 0;
+      });
+      setMembersList(sorted);
       setMembersVisible(true);
     } catch {}
   }
@@ -60,7 +77,7 @@ export default function GroupChatScreen() {
     ]);
   }
 
-  useEffect(() => { if (!groupId) return; getDoc(doc(db, "groups", groupId)).then((snap) => { if (snap.exists()) { const d = snap.data(); setGroupInfo({ name: d.name, members: d.members, createdBy: d.createdBy, photoURL: d.photoURL || null }); } }); }, [groupId]);
+  useEffect(() => { if (!groupId) return; getDoc(doc(db, "groups", groupId)).then((snap) => { if (snap.exists()) { const d = snap.data(); setGroupInfo({ name: d.name, members: d.members, createdBy: d.createdBy, subadmins: d.subadmins || [], photoURL: d.photoURL || null }); } }); }, [groupId]);
   useEffect(() => { if (!groupId) return; const unsub = subscribeGroupMessages(groupId, setMessages); return unsub; }, [groupId]);
   useEffect(() => { if (messages.length > 0) { setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100); } }, [messages]);
 
@@ -152,7 +169,7 @@ export default function GroupChatScreen() {
   const initials = groupInfo?.name ? groupInfo.name.slice(0, 1).toUpperCase() : "G";
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header Bar */}
@@ -183,17 +200,24 @@ export default function GroupChatScreen() {
         </Pressable>
       </View>
 
-      <FlatList ref={flatListRef} data={messages} keyExtractor={(item) => item.id} contentContainerStyle={{ padding: 16, paddingBottom: 8 }} onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+      <FlatList ref={flatListRef} data={messages} keyExtractor={(item) => item.id} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 100 }} onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => {
           const mine = item.fromUid === user?.uid;
+          const isGif = (item.text.includes("giphy.com") || item.text.includes("tenor.com")) && item.text.includes(".gif");
           return (
             <Pressable onLongPress={() => { if (mine) { setSelectedMsg(item); setMsgMenuVisible(true); } }}>
               <View style={{ marginBottom: 12 }}>
                 {!mine && <Text style={{ fontSize: 12, fontWeight: "600", color: colors.accent, marginBottom: 4, marginLeft: 4 }}>{item.fromUsername}</Text>}
                 <View style={{ alignItems: mine ? "flex-end" : "flex-start" }}>
-                  <View style={{ maxWidth: "78%", borderRadius: 16, borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4, backgroundColor: mine ? colors.accent : colors.card, paddingHorizontal: 14, paddingVertical: 10, borderWidth: mine ? 0 : 1, borderColor: colors.border }}>
-                    <Text style={{ fontSize: 15, lineHeight: 20, color: mine ? "#fff" : colors.text }}>{item.text}</Text>
-                    <Text style={{ fontSize: 10, color: mine ? "rgba(255,255,255,0.6)" : colors.muted, marginTop: 4, textAlign: "right" }}>{formatTime(item.created_at)}</Text>
+                  <View style={{ maxWidth: "78%", borderRadius: 16, borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4, backgroundColor: mine ? colors.accent : colors.card, overflow: "hidden", borderWidth: mine ? 0 : 1, borderColor: colors.border }}>
+                    {isGif ? (
+                      <Image source={{ uri: item.text }} style={{ width: 200, height: 150, borderRadius: 12 }} resizeMode="cover" />
+                    ) : (
+                      <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+                        <Text style={{ fontSize: 15, lineHeight: 20, color: mine ? "#fff" : colors.text }}>{item.text}</Text>
+                      </View>
+                    )}
+                    <Text style={{ fontSize: 10, color: mine ? "rgba(255,255,255,0.6)" : colors.muted, marginTop: 4, textAlign: "right", paddingHorizontal: isGif ? 8 : 0, paddingBottom: isGif ? 6 : 0 }}>{formatTime(item.created_at)}</Text>
                   </View>
                 </View>
               </View>
@@ -208,7 +232,7 @@ export default function GroupChatScreen() {
         <Pressable style={{ flex: 1 }} onPress={() => setMsgMenuVisible(false)}>
           <View style={{ flex: 1, backgroundColor: colors.menuOverlay, justifyContent: "center", alignItems: "center" }}>
             <Pressable onPress={(e: any) => e.stopPropagation()}
-              style={{ borderRadius: 14, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border, minWidth: 180 }}>
+              style={{ borderRadius: 16, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border, minWidth: 180 }}>
               {selectedMsg && (Date.now() - selectedMsg.created_at < 5 * 60 * 1000) && (
                 <Pressable onPress={() => { setMsgMenuVisible(false); setEditText(selectedMsg!.text); setEditVisible(true); }}
                   style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
@@ -234,7 +258,7 @@ export default function GroupChatScreen() {
       {/* Edit Message Modal */}
       <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.menuOverlay, paddingHorizontal: 24 }}>
-          <View style={{ width: "100%", borderRadius: 14, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ marginBottom: 12, fontSize: 15, fontWeight: "600", color: colors.text }}>Edit Message</Text>
             <TextInput value={editText} onChangeText={setEditText} autoFocus
               style={{ borderRadius: 10, backgroundColor: colors.input, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border }} />
@@ -253,21 +277,49 @@ export default function GroupChatScreen() {
         </View>
       </Modal>
 
-      <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10 + insets.bottom, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+      {/* Original input - hidden when gif picker open */}
+      {!gifVisible && (
+        <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10 + insets.bottom, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
         <TextInput value={text} onChangeText={setText} placeholder="Type a message..." placeholderTextColor={colors.muted} multiline maxLength={500}
           style={{ flex: 1, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: colors.text, maxHeight: 100 }} />
+        <Pressable onPress={() => { setText(""); Keyboard.dismiss(); setTimeout(() => setGifVisible(true), 1000); }}
+          style={{ marginLeft: 8, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+          <MaterialIcons name="gif" size={22} color={colors.muted} />
+        </Pressable>
         <Pressable onPress={handleSend} disabled={!text.trim()}
           style={{ marginLeft: 8, width: 40, height: 40, borderRadius: 20, backgroundColor: text.trim() ? colors.accent : colors.muted, alignItems: "center", justifyContent: "center" }}>
           <MaterialIcons name="send" size={18} color="#fff" />
         </Pressable>
       </View>
+      )}
+
+      <GifPicker visible={gifVisible} onClose={() => setGifVisible(false)} onSelect={async (url) => {
+        if (!groupId) return;
+        try { await sendGroupMessage(groupId, url); } catch {}
+      }} />
+
+      {/* Floating input above keyboard */}
+      {kbOpen && !gifVisible && (
+        <View style={{ position: "absolute", bottom: kbHeight + insets.bottom, left: 0, right: 0, flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+          <TextInput value={text} onChangeText={setText} placeholder="Type a message..." placeholderTextColor={colors.muted} multiline maxLength={500}
+            style={{ flex: 1, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: colors.text, maxHeight: 100 }} />
+          <Pressable onPress={() => { setText(""); Keyboard.dismiss(); setTimeout(() => setGifVisible(true), 1000); }}
+            style={{ marginLeft: 8, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+            <MaterialIcons name="gif" size={22} color={colors.muted} />
+          </Pressable>
+          <Pressable onPress={handleSend} disabled={!text.trim()}
+            style={{ marginLeft: 8, width: 40, height: 40, borderRadius: 20, backgroundColor: text.trim() ? colors.accent : colors.muted, alignItems: "center", justifyContent: "center" }}>
+            <MaterialIcons name="send" size={18} color="#fff" />
+          </Pressable>
+        </View>
+      )}
 
       {/* Group Menu */}
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <Pressable style={{ flex: 1 }} onPress={() => setMenuVisible(false)}>
           <View style={{ flex: 1, backgroundColor: colors.menuOverlay, justifyContent: "flex-end", paddingBottom: 40 }}>
             <Pressable onPress={(e: any) => e.stopPropagation()}
-              style={{ marginHorizontal: 16, borderRadius: 14, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border }}>
+              style={{ marginHorizontal: 16, borderRadius: 16, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border }}>
               <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                 <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{groupInfo?.name}</Text>
               </View>
@@ -276,7 +328,7 @@ export default function GroupChatScreen() {
                 <MaterialIcons name="group" size={18} color={colors.text} style={{ marginRight: 12 }} />
                 <Text style={{ fontSize: 14, fontWeight: "500", color: colors.text }}>View Members</Text>
               </Pressable>
-              {isCreator && (
+              {hasAdminPerms && (
                 <>
                   <Pressable onPress={() => { setMenuVisible(false); setRenameDraft(groupInfo?.name || ""); setRenameVisible(true); }}
                     style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
@@ -308,7 +360,7 @@ export default function GroupChatScreen() {
       {/* Rename Modal */}
       <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.menuOverlay, paddingHorizontal: 24 }}>
-          <View style={{ width: "100%", borderRadius: 14, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ marginBottom: 12, fontSize: 15, fontWeight: "600", color: colors.text }}>Rename Group</Text>
             <TextInput value={renameDraft} onChangeText={setRenameDraft} onSubmitEditing={saveRename} autoFocus
               style={{ borderRadius: 10, backgroundColor: colors.input, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border }} />
@@ -367,6 +419,10 @@ export default function GroupChatScreen() {
               <FlatList data={membersList} keyExtractor={(item) => item.uid} style={{ marginTop: 4, maxHeight: 400 }}
                 renderItem={({ item }) => {
                   const isMe = item.uid === user?.uid;
+                  const isItemCreator = item.uid === groupInfo?.createdBy;
+                  const isItemSubadmin = groupInfo?.subadmins?.includes(item.uid) || false;
+                  const canKick = hasAdminPerms && !isMe && !isItemCreator && (!isSubadmin || isCreator);
+                  const canToggleSubadmin = isCreator && !isMe && !isItemCreator;
                   return (
                     <Pressable onPress={() => { setMembersVisible(false); router.push(isMe ? "/profile" : `/user/${item.uid}`); }}
                       style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
@@ -378,7 +434,43 @@ export default function GroupChatScreen() {
                         )}
                       </View>
                       <Text style={{ flex: 1, fontSize: 14, fontWeight: "500", color: colors.text }}>{item.username}{isMe ? " (You)" : ""}</Text>
-                      {isCreator && !isMe && (
+                      {isItemCreator && (
+                        <View style={{ backgroundColor: colors.accentLight, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "600", color: colors.accent }}>Admin</Text>
+                        </View>
+                      )}
+                      {isItemSubadmin && !isItemCreator && (
+                        <View style={{ backgroundColor: "rgba(100, 200, 120, 0.15)", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 }}>
+                          <Text style={{ fontSize: 11, fontWeight: "600", color: colors.greenText }}>Subadmin</Text>
+                        </View>
+                      )}
+                      {canToggleSubadmin && (
+                        <Pressable onPress={() => {
+                          setMembersVisible(false);
+                          const action = isItemSubadmin ? "Remove Subadmin" : "Make Subadmin";
+                          const msg = isItemSubadmin
+                            ? `Remove ${item.username}'s subadmin status?`
+                            : `Make ${item.username} a subadmin? They will get admin permissions.`;
+                          Alert.alert(action, msg, [
+                            { text: "Cancel", style: "cancel" },
+                            { text: isItemSubadmin ? "Remove" : "Confirm", style: isItemSubadmin ? "destructive" : "default", onPress: async () => {
+                              try {
+                                if (isItemSubadmin) { await removeSubadmin(groupId!, item.uid); }
+                                else { await setSubadmin(groupId!, item.uid); }
+                                setGroupInfo((prev) => prev ? {
+                                  ...prev,
+                                  subadmins: isItemSubadmin
+                                    ? prev.subadmins.filter((s) => s !== item.uid)
+                                    : [...prev.subadmins, item.uid],
+                                } : prev);
+                              } catch {}
+                            }},
+                          ]);
+                        }} hitSlop={8} style={{ padding: 6, marginRight: 4 }}>
+                          <MaterialIcons name={isItemSubadmin ? "star" : "star-outline"} size={20} color={isItemSubadmin ? colors.greenText : colors.muted} />
+                        </Pressable>
+                      )}
+                      {canKick && (
                         <Pressable onPress={() => {
                           setMembersVisible(false);
                           Alert.alert("Kick Member", `Remove ${item.username} from the group?`, [
@@ -391,7 +483,7 @@ export default function GroupChatScreen() {
                           <MaterialIcons name="person-remove" size={20} color={colors.errorText} />
                         </Pressable>
                       )}
-                      {(!isCreator || isMe) && (
+                      {!hasAdminPerms && (
                         <MaterialIcons name="chevron-right" size={18} color={colors.muted} />
                       )}
                     </Pressable>
@@ -402,6 +494,6 @@ export default function GroupChatScreen() {
           </View>
         </Pressable>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

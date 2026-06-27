@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useTheme } from "../lib/theme";
@@ -55,17 +55,16 @@ export default function PdfNotesScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
           <View style={{ marginTop: 40, marginBottom: 24 }}>
-            <Pressable onPress={() => router.back()} style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <MaterialIcons name="arrow-back" size={18} color={colors.accent} />
-              <Text style={{ fontSize: 14, color: colors.accent, fontWeight: "600" }}>Back</Text>
+            <Pressable onPress={() => router.back()} style={{ marginBottom: 16, width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="arrow-back" size={20} color={colors.text} />
             </Pressable>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text }}>PDF to Notes</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>PDF to Notes</Text>
             <Text style={{ marginTop: 4, fontSize: 13, color: colors.muted }}>Upload a PDF and get AI-generated notes</Text>
           </View>
 
@@ -113,18 +112,18 @@ export default function PdfNotesScreen() {
           )}
 
           <Pressable onPress={onGenerate} disabled={loading || !pdf}
-            style={{ marginTop: 24, height: 50, borderRadius: 14, backgroundColor: loading || !pdf ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center" }}>
+            style={{ marginTop: 24, height: 52, borderRadius: 14, backgroundColor: loading || !pdf ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center" }}>
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <MaterialIcons name="auto-fix-high" size={18} color="#fff" />
-                <Text style={{ fontSize: 15, fontWeight: "600", color: "#fff" }}>Generate Notes</Text>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Generate Notes</Text>
               </View>
             )}
           </Pressable>
         </ScrollView>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }

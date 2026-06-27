@@ -35,6 +35,14 @@ const COLORS: ThemeColors = {
   skeleton: "rgba(139, 107, 74, 0.1)",
   skeletonHighlight: "rgba(139, 107, 74, 0.2)",
   pinnedBg: "rgba(139, 107, 74, 0.08)",
+  onlineGreen: "#64C878",
+  toolTest: "#64C878",
+  toolPdf: "#E85D5D",
+  toolFlashcards: "#9B8A70",
+  toolExplain: "#E8A04A",
+  toolBg: "rgba(255, 255, 255, 0.08)",
+  white: "#FFFFFF",
+  avatarFallback: "#DDAAAA",
 };
 
 const GRADIENT: readonly [string, string] = ["#8B6B4A", "#5A4530"];

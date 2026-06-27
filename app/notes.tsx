@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { AnimatedCard } from "../components/AnimatedCard";
 import { SkeletonCard } from "../components/Skeleton";
@@ -134,7 +134,7 @@ export default function NotesScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
@@ -250,7 +250,7 @@ export default function NotesScreen() {
           <Pressable style={{ flex: 1 }} onPress={() => setMenuVisible(false)}>
             <View style={{ flex: 1, backgroundColor: colors.menuOverlay, justifyContent: "flex-end", paddingBottom: 40 }}>
               <Pressable onPress={(e: any) => e.stopPropagation()}
-                style={{ marginHorizontal: 16, borderRadius: 14, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border }}>
+                style={{ marginHorizontal: 16, borderRadius: 16, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border }}>
                 <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                   <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{selectedNote?.title}</Text>
                 </View>
@@ -277,7 +277,7 @@ export default function NotesScreen() {
         {/* Rename Modal */}
         <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.menuOverlay, paddingHorizontal: 24 }}>
-            <View style={{ width: "100%", borderRadius: 14, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ marginBottom: 12, fontSize: 15, fontWeight: "600", color: colors.text }}>Rename</Text>
               <TextInput value={renameDraft} onChangeText={setRenameDraft} onSubmitEditing={saveRename} autoFocus
                 style={{ borderRadius: 10, backgroundColor: colors.input, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border }}
@@ -299,7 +299,7 @@ export default function NotesScreen() {
           <Pressable style={{ flex: 1 }} onPress={() => setFcMenuVisible(false)}>
             <View style={{ flex: 1, backgroundColor: colors.menuOverlay, justifyContent: "flex-end", paddingBottom: 40 }}>
               <Pressable onPress={(e: any) => e.stopPropagation()}
-                style={{ marginHorizontal: 16, borderRadius: 14, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border }}>
+                style={{ marginHorizontal: 16, borderRadius: 16, backgroundColor: colors.card, overflow: "hidden", padding: 6, borderWidth: 1, borderColor: colors.border }}>
                 <View style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                   <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "600", color: colors.text }}>{selectedFc?.title}</Text>
                 </View>
@@ -326,7 +326,7 @@ export default function NotesScreen() {
         {/* Flashcard Rename Modal */}
         <Modal visible={fcRenameVisible} transparent animationType="fade" onRequestClose={() => setFcRenameVisible(false)}>
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.menuOverlay, paddingHorizontal: 24 }}>
-            <View style={{ width: "100%", borderRadius: 14, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 18, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ marginBottom: 12, fontSize: 15, fontWeight: "600", color: colors.text }}>Rename</Text>
               <TextInput value={fcRenameDraft} onChangeText={setFcRenameDraft} onSubmitEditing={saveFcRename} autoFocus
                 style={{ borderRadius: 10, backgroundColor: colors.input, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.border }}
@@ -343,6 +343,6 @@ export default function NotesScreen() {
           </View>
         </Modal>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }

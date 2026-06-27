@@ -78,8 +78,8 @@ export default function Login() {
         ) : null}
 
         <Pressable onPress={onSubmit} disabled={loading}
-          style={{ marginTop: 24, height: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: loading ? colors.muted : colors.accent }}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>{isLogin ? "Sign In" : "Create Account"}</Text>}
+          style={{ marginTop: 24, height: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: loading ? colors.muted : colors.accent }}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>{isLogin ? "Sign In" : "Create Account"}</Text>}
         </Pressable>
 
         <Pressable onPress={() => { setError(null); setMode(isLogin ? "signup" : "login"); }} disabled={loading} style={{ marginTop: 20, alignItems: "center" }}>

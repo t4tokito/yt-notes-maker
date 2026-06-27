@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../lib/theme";
 import { hapticMedium, hapticSuccess } from "../lib/haptics";
@@ -77,17 +77,16 @@ export default function FlashcardsScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <View style={{ marginTop: 40, marginBottom: 24 }}>
-            <Pressable onPress={() => router.back()} style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <MaterialIcons name="arrow-back" size={18} color={colors.accent} />
-              <Text style={{ fontSize: 14, color: colors.accent, fontWeight: "600" }}>Back</Text>
+            <Pressable onPress={() => router.back()} style={{ marginBottom: 16, width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="arrow-back" size={20} color={colors.text} />
             </Pressable>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text }}>Flashcards</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>Flashcards</Text>
             <Text style={{ marginTop: 4, fontSize: 13, color: colors.muted }}>Pick a note to generate flashcards from</Text>
           </View>
 
@@ -127,14 +126,14 @@ export default function FlashcardsScreen() {
                 <Pressable
                   onPress={generate}
                   disabled={loading}
-                  style={{ marginTop: 16, height: 48, borderRadius: 14, backgroundColor: loading ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center" }}
+                  style={{ marginTop: 16, height: 52, borderRadius: 14, backgroundColor: loading ? colors.muted : colors.accent, alignItems: "center", justifyContent: "center" }}
                 >
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <MaterialIcons name="style" size={18} color="#fff" />
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>Generate Flashcards</Text>
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>Generate Flashcards</Text>
                     </View>
                   )}
                 </Pressable>
@@ -156,8 +155,8 @@ export default function FlashcardsScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {saved && (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <MaterialIcons name="check" size={12} color="#64C878" />
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: "#64C878" }}>Saved</Text>
+                      <MaterialIcons name="check" size={12} color={colors.greenText} />
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.greenText }}>Saved</Text>
                     </View>
                   )}
                   <Pressable onPress={() => { setCards(null); setActiveCard(null); setSelected(null); setFlipped(false); setSaved(false); }}>
@@ -201,6 +200,6 @@ export default function FlashcardsScreen() {
           )}
         </ScrollView>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }

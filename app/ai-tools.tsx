@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../lib/theme";
 import { hapticMedium } from "../lib/haptics";
@@ -21,9 +21,9 @@ export default function AiToolsScreen() {
   const [activeCard, setActiveCard] = useState<number | null>(null);
 
   const tools: { key: AiTool; label: string; desc: string; icon: keyof typeof MaterialIcons.glyphMap; color: string }[] = [
-    { key: "summarize", label: "Summarize", desc: "Get a quick summary", icon: "summarize", color: "#64C878" },
-    { key: "explain", label: "Explain", desc: "Simple explanations", icon: "lightbulb-outline", color: "#E8924A" },
-    { key: "flashcards", label: "Flashcards", desc: "Study flashcards", icon: "style", color: "#9B8A70" },
+    { key: "summarize", label: "Summarize", desc: "Get a quick summary", icon: "summarize", color: colors.greenText },
+    { key: "explain", label: "Explain", desc: "Simple explanations", icon: "lightbulb-outline", color: colors.toolExplain },
+    { key: "flashcards", label: "Flashcards", desc: "Study flashcards", icon: "style", color: colors.toolFlashcards },
   ];
 
   async function handleTool(toolKey: AiTool) {
@@ -52,17 +52,16 @@ export default function AiToolsScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <View style={{ marginTop: 40, marginBottom: 24 }}>
-            <Pressable onPress={() => router.back()} style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <MaterialIcons name="arrow-back" size={18} color={colors.accent} />
-              <Text style={{ fontSize: 14, color: colors.accent, fontWeight: "600" }}>Back</Text>
+            <Pressable onPress={() => router.back()} style={{ marginBottom: 16, width: 40, height: 40, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="arrow-back" size={20} color={colors.text} />
             </Pressable>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text }}>AI Study Tools</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>AI Study Tools</Text>
             <Text style={{ marginTop: 4, fontSize: 13, color: colors.muted }}>Enter a topic or paste text to get started</Text>
           </View>
 
@@ -145,6 +144,6 @@ export default function AiToolsScreen() {
           )}
         </ScrollView>
       </View>
-    </GestureHandlerRootView>
+    </View>
   );
 }
