@@ -23,8 +23,7 @@ const TABS: Tab[] = [
 
 export function BottomNav() {
   const { colors, gradient } = useTheme();
-  const { hasNewMsg } = useNotifications();
-  const totalUnread = Object.values(hasNewMsg).filter(Boolean).length;
+  const { totalUnread } = useNotifications();
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();

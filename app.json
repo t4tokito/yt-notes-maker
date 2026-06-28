@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true

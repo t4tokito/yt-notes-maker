@@ -15,6 +15,9 @@ import { AuthProvider, authErrorMessage, useAuth } from "../lib/auth";
 import { ThemeProvider, useTheme } from "../lib/theme";
 import { NotificationProvider } from "../lib/notifications";
 import { BottomNav } from "../components/BottomNav";
+import { VersionCheckModal } from "../components/VersionCheckModal";
+import { checkVersion } from "../lib/api";
+import { APP_VERSION } from "../config";
 
 function UsernamePrompt() {
   const { user, needsUsername, setUsername } = useAuth();
@@ -143,12 +146,23 @@ function AppShell() {
   const onUserScreen = segments[0] === "user";
   const onNoteDetail = segments[0] === "note";
   const onTestScreen = segments[0] === "test";
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    checkVersion().then((serverVersion) => {
+      if (serverVersion && serverVersion !== APP_VERSION) {
+        setUpdateAvailable(true);
+      }
+    });
+  }, [user]);
 
   return (
     <View style={{ flex: 1 }}>
       <RootNavigator />
       {user && !onLoginScreen && !onChatDetail && !isNewScreen && !onGroupScreen && !onUserScreen && !onNoteDetail && !onTestScreen && <BottomNav />}
       <UsernamePrompt />
+      <VersionCheckModal visible={updateAvailable} onClose={() => setUpdateAvailable(false)} />
     </View>
   );
 }
@@ -160,8 +174,8 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0A0A0A" }}>
-        <ActivityIndicator color="#8B6B4A" />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#1E2030" }}>
+        <ActivityIndicator color="#927FBF" />
       </View>
     );
   }

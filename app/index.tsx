@@ -12,6 +12,25 @@ import { hapticMedium } from "../lib/haptics";
 import { getNotes, getWeeklyActivity, type Note, type WeekDay } from "../lib/notes";
 import { getFriends, subscribeFriends, syncAcceptedRequests, updateLastSeen, type Friend } from "../lib/friends";
 import { getFlashcardSets, type FlashcardSet } from "../lib/flashcards";
+import { getTestResults, type TestResult } from "../lib/testResults";
+
+function calculateStreak(results: TestResult[]): number {
+  if (results.length === 0) return 0;
+  const sorted = [...results].sort((a, b) => b.created_at - a.created_at);
+  let streak = 0;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 365; i++) {
+    const day = new Date(now);
+    day.setDate(day.getDate() - i);
+    const dayMs = day.getTime();
+    const nextDayMs = dayMs + 86400000;
+    const hasQuiz = sorted.some((r) => r.created_at >= dayMs && r.created_at < nextDayMs);
+    if (hasQuiz) streak++;
+    else if (i > 0) break;
+  }
+  return streak;
+}
 
 function ProductivityGraph({ colors, weekData }: { colors: any; weekData: WeekDay[] }) {
   const max = Math.max(...weekData.map((d) => d.count), 1);
@@ -103,6 +122,7 @@ export default function Home() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>([]);
   const [weekData, setWeekData] = useState<WeekDay[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [addFriendVisible, setAddFriendVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -113,6 +133,7 @@ export default function Home() {
       getNotes().then(setNotes).catch(() => {}),
       getWeeklyActivity().then(setWeekData).catch(() => {}),
       getFlashcardSets().then(setFlashcardSets).catch(() => {}),
+      getTestResults().then(setTestResults).catch(() => {}),
     ]);
     setLoading(false);
   }, []);
@@ -136,7 +157,8 @@ export default function Home() {
   const pinnedFlashcards = flashcardSets.filter((s) => s.pinned);
   const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
   const totalNotes = notes.length;
-  const totalFlashcards = flashcardSets.reduce((acc, s) => acc + s.cards.length, 0);
+  const totalFlashcards = flashcardSets.length;
+  const streak = calculateStreak(testResults);
 
   return (
     <View style={{ flex: 1 }}>
@@ -157,7 +179,7 @@ export default function Home() {
                   <MaterialIcons name="smart-display" size={24} color="#fff" />
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#A5D6A7" }} />
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#C4BBF0" }} />
                   <Text style={{ fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.8)" }}>AI</Text>
                 </View>
               </View>
@@ -173,7 +195,7 @@ export default function Home() {
           {/* Quick Stats */}
           <View style={{ marginHorizontal: 20, marginTop: 16, flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}>
-              <MaterialIcons name="description" size={22} color={colors.accent} />
+              <MaterialIcons name="description" size={22} color={colors.toolFlashcards} />
               <Text style={{ marginTop: 8, fontSize: 20, fontWeight: "700", color: colors.text }}>{totalNotes}</Text>
               <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Notes</Text>
             </View>
@@ -183,7 +205,7 @@ export default function Home() {
               <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Flashcards</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}>
-              <MaterialIcons name="people" size={22} color={colors.greenText} />
+              <MaterialIcons name="people" size={22} color={colors.toolFlashcards} />
               <Text style={{ marginTop: 8, fontSize: 20, fontWeight: "700", color: colors.text }}>{friends.length}</Text>
               <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Friends</Text>
             </View>
@@ -218,6 +240,19 @@ export default function Home() {
               )}
             </ScrollView>
           </View>
+
+          {/* Streak Banner */}
+          {streak > 0 && (
+            <View style={{ marginHorizontal: 20, marginTop: 16, backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: colors.toolExplain + "18", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 24 }}>🔥</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{streak} Day Streak!</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Keep it up — take a quiz daily</Text>
+              </View>
+            </View>
+          )}
 
           {/* Activity */}
           <View style={{ marginHorizontal: 20, marginTop: 24 }}>

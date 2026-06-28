@@ -1,17 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { auth, db } from "./firebase";
-import { collection, onSnapshot, orderBy, query, limit, where } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, orderBy, query, limit } from "firebase/firestore";
 
 type NotificationContextValue = {
   totalUnread: number;
   hasNewMsg: Record<string, boolean>;
+  groupUnreads: Record<string, boolean>;
   clearNewMsg: (uid: string) => void;
+  clearGroupUnread: (groupId: string) => void;
 };
 
 const NotificationContext = createContext<NotificationContextValue>({
   totalUnread: 0,
   hasNewMsg: {},
+  groupUnreads: {},
   clearNewMsg: () => {},
+  clearGroupUnread: () => {},
 });
 
 function chatId(uid1: string, uid2: string): string {
@@ -20,7 +24,9 @@ function chatId(uid1: string, uid2: string): string {
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [hasNewMsg, setHasNewMsg] = useState<Record<string, boolean>>({});
+  const [groupUnreads, setGroupUnreads] = useState<Record<string, boolean>>({});
   const lastMsgTimes = useRef<Record<string, number>>({});
+  const lastGroupReadTimes = useRef<Record<string, number>>({});
 
   useEffect(() => {
     const uid = auth.currentUser?.uid;
@@ -57,7 +63,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    return () => unsubFriends();
+    // Listen to user's groups for new messages
+    const unsubGroups = onSnapshot(
+      collection(db, "users", uid, "groups"),
+      (snap) => {
+        for (const groupDoc of snap.docs) {
+          const groupId = groupDoc.id;
+          onSnapshot(
+            query(
+              collection(db, "groups", groupId, "messages"),
+              orderBy("created_at", "desc"),
+              limit(1)
+            ),
+            (msgSnap) => {
+              if (msgSnap.empty) return;
+              const msg = msgSnap.docs[0].data();
+              const msgTime = msg.created_at?.toMillis?.() || 0;
+              const fromThem = msg.fromUid !== uid;
+
+              if (fromThem && msgTime > (lastGroupReadTimes.current[groupId] || 0)) {
+                setGroupUnreads((prev) => ({ ...prev, [groupId]: true }));
+              }
+            }
+          );
+        }
+      }
+    );
+
+    return () => { unsubFriends(); unsubGroups(); };
   }, []);
 
   const clearNewMsg = useCallback((friendUid: string) => {
@@ -66,14 +99,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       delete next[friendUid];
       return next;
     });
-    // Record current time so we don't re-trigger
     lastMsgTimes.current[friendUid] = Date.now();
   }, []);
 
-  const totalUnread = Object.values(hasNewMsg).filter(Boolean).length;
+  const clearGroupUnread = useCallback((groupId: string) => {
+    setGroupUnreads((prev) => {
+      const next = { ...prev };
+      delete next[groupId];
+      return next;
+    });
+    lastGroupReadTimes.current[groupId] = Date.now();
+  }, []);
+
+  const totalUnread = Object.values(hasNewMsg).filter(Boolean).length + Object.values(groupUnreads).filter(Boolean).length;
 
   return (
-    <NotificationContext.Provider value={{ totalUnread, hasNewMsg, clearNewMsg }}>
+    <NotificationContext.Provider value={{ totalUnread, hasNewMsg, groupUnreads, clearNewMsg, clearGroupUnread }}>
       {children}
     </NotificationContext.Provider>
   );

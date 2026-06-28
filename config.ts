@@ -8,3 +8,5 @@
  */
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:3000";
+
+export const APP_VERSION = "1.0.0";

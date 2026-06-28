@@ -24,6 +24,7 @@ export type Friend = {
   photoURL?: string | null;
   online?: boolean;
   lastSeen?: number;
+  pinned?: boolean;
 };
 
 export type FriendRequest = {
@@ -143,6 +144,7 @@ export async function getFriends(): Promise<Friend[]> {
   const now = Date.now();
 
   for (const d of snap.docs) {
+    const friendData = d.data();
     const userSnap = await getDoc(doc(db, "users", d.id));
     if (userSnap.exists()) {
       const data = userSnap.data();
@@ -155,6 +157,7 @@ export async function getFriends(): Promise<Friend[]> {
         photoURL: data.photoURL || null,
         online: isOnline,
         lastSeen,
+        pinned: friendData.pinned || false,
       });
     }
   }
@@ -229,4 +232,13 @@ export function subscribeFriendRequests(callback: (requests: FriendRequest[]) =>
     const requests = await getFriendRequests();
     callback(requests);
   });
+}
+
+export async function togglePinFriend(friendUid: string): Promise<void> {
+  const uid = requireUid();
+  const friendRef = doc(db, "users", uid, "friends", friendUid);
+  const friendSnap = await getDoc(friendRef);
+  if (!friendSnap.exists()) return;
+  const currentPinned = friendSnap.data().pinned || false;
+  await updateDoc(friendRef, { pinned: !currentPinned });
 }

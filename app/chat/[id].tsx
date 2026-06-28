@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, FlatList, Image, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,6 +29,7 @@ export default function ChatScreen() {
   const [gifVisible, setGifVisible] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
+  const [loadingMessages, setLoadingMessages] = useState(true);
 
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", (e) => { setKbOpen(true); setKbHeight(e.endCoordinates.height); });
@@ -37,7 +38,13 @@ export default function ChatScreen() {
   }, []);
 
   useEffect(() => { if (!friendUid) return; getDoc(doc(db, "users", friendUid)).then((snap) => { if (snap.exists()) { const d = snap.data(); setFriendProfile({ username: d.username, photoURL: d.photoURL }); } }); }, [friendUid]);
-  useEffect(() => { if (!friendUid) return; const unsub = subscribeMessages(friendUid, setMessages); markMessagesRead(friendUid).catch(() => {}); return unsub; }, [friendUid]);
+  useEffect(() => {
+    if (!friendUid) return;
+    setLoadingMessages(true);
+    const unsub = subscribeMessages(friendUid, (msgs) => { setMessages(msgs); setLoadingMessages(false); });
+    markMessagesRead(friendUid).catch(() => {});
+    return unsub;
+  }, [friendUid]);
   useEffect(() => { if (messages.length > 0) { setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100); } }, [messages]);
 
   async function handleSend() {
@@ -98,7 +105,13 @@ export default function ChatScreen() {
             </Pressable>
           );
         }}
-        ListEmptyComponent={<View style={{ alignItems: "center", marginTop: 80 }}><MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} /><Text style={{ fontSize: 15, color: colors.muted, marginTop: 8 }}>Say hello!</Text></View>}
+        ListEmptyComponent={loadingMessages ? (
+          <View style={{ alignItems: "center", marginTop: 80 }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <View style={{ alignItems: "center", marginTop: 80 }}><MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} /><Text style={{ fontSize: 15, color: colors.muted, marginTop: 8 }}>Say hello!</Text></View>
+        )}
       />
 
       {/* Message Action Menu */}

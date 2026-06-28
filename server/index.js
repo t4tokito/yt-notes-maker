@@ -318,8 +318,14 @@ async function generateQuiz(source, opts) {
   return questions;
 }
 
+const VERSION = "1.0.0";
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, model: OPENROUTER_MODEL, hasKey: !!OPENROUTER_API_KEY });
+});
+
+app.get("/api/version", (_req, res) => {
+  res.json({ version: VERSION });
 });
 
 app.post("/api/notes", async (req, res) => {

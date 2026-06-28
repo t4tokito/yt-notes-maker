@@ -1,5 +1,19 @@
 import { API_URL } from "../config";
 
+// ----------------------------- Version Check -----------------------------
+
+export async function checkVersion(): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/version`);
+    const data = await res.json();
+    return data.version;
+  } catch {
+    return null;
+  }
+}
+
+// ----------------------------- Notes --------------------------------------
+
 export type NoteStyle = "summary" | "detailed" | "bullets";
 
 export type GeneratedNotes = {

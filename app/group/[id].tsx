@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, FlatList, Image, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -7,6 +7,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
+import { useNotifications } from "../../lib/notifications";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { sendGroupMessage, subscribeGroupMessages, updateGroup, getGroupMembers, leaveGroup, kickMember, editGroupMessage, deleteGroupMessage, setSubadmin, removeSubadmin, markGroupMessagesRead, type GroupMessage } from "../../lib/groups";
@@ -19,6 +20,7 @@ export default function GroupChatScreen() {
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { clearGroupUnread } = useNotifications();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<GroupMessage[]>([]);
@@ -41,6 +43,7 @@ export default function GroupChatScreen() {
   const [gifVisible, setGifVisible] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
+  const [loadingMessages, setLoadingMessages] = useState(true);
 
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", (e) => { setKbOpen(true); setKbHeight(e.endCoordinates.height); });
@@ -78,7 +81,14 @@ export default function GroupChatScreen() {
   }
 
   useEffect(() => { if (!groupId) return; getDoc(doc(db, "groups", groupId)).then((snap) => { if (snap.exists()) { const d = snap.data(); setGroupInfo({ name: d.name, members: d.members, createdBy: d.createdBy, subadmins: d.subadmins || [], photoURL: d.photoURL || null }); } }); }, [groupId]);
-  useEffect(() => { if (!groupId) return; const unsub = subscribeGroupMessages(groupId, setMessages); markGroupMessagesRead(groupId).catch(() => {}); return unsub; }, [groupId]);
+  useEffect(() => {
+    if (!groupId) return;
+    setLoadingMessages(true);
+    const unsub = subscribeGroupMessages(groupId, (msgs) => { setMessages(msgs); setLoadingMessages(false); });
+    markGroupMessagesRead(groupId).catch(() => {});
+    clearGroupUnread(groupId);
+    return unsub;
+  }, [groupId]);
   useEffect(() => { if (messages.length > 0) { setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100); } }, [messages]);
 
   // Auto-load all friends when Add Member modal opens
@@ -224,7 +234,13 @@ export default function GroupChatScreen() {
             </Pressable>
           );
         }}
-        ListEmptyComponent={<View style={{ alignItems: "center", marginTop: 80 }}><MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} /><Text style={{ fontSize: 15, color: colors.muted, marginTop: 8 }}>Start the conversation!</Text></View>}
+        ListEmptyComponent={loadingMessages ? (
+          <View style={{ alignItems: "center", marginTop: 80 }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <View style={{ alignItems: "center", marginTop: 80 }}><MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} /><Text style={{ fontSize: 15, color: colors.muted, marginTop: 8 }}>Start the conversation!</Text></View>
+        )}
       />
 
       {/* Message Action Menu */}

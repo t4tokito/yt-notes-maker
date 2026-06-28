@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { useNotifications } from "../lib/notifications";
 import { hapticMedium } from "../lib/haptics";
-import { getFriends, subscribeFriends, updateLastSeen, type Friend } from "../lib/friends";
+import { getFriends, subscribeFriends, updateLastSeen, togglePinFriend, type Friend } from "../lib/friends";
+import { getChatPreviews, type ChatPreview } from "../lib/chat";
 import { getMyGroups, subscribeMyGroups, type Group } from "../lib/groups";
 import { Header } from "../components/Header";
 import { AddFriendModal } from "../components/AddFriendModal";
@@ -16,7 +17,7 @@ type Tab = "friends" | "groups";
 export default function ChatListScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { hasNewMsg, clearNewMsg } = useNotifications();
+  const { hasNewMsg, groupUnreads, clearNewMsg } = useNotifications();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -28,6 +29,7 @@ export default function ChatListScreen() {
   const [nicknameVisible, setNicknameVisible] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState("");
   const [nicknames, setNicknames] = useState<Record<string, string>>({});
+  const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -37,7 +39,21 @@ export default function ChatListScreen() {
     return () => { unsubGroups(); unsubFriends(); };
   }, [user]);
 
-  const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
+  useEffect(() => {
+    if (!user || friends.length === 0) return;
+    getChatPreviews(friends).then(setChatPreviews);
+  }, [user, friends]);
+
+  const sortedFriends = [...friends].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    const aPreview = chatPreviews.find((p) => p.friendUid === a.uid);
+    const bPreview = chatPreviews.find((p) => p.friendUid === b.uid);
+    const aTime = aPreview?.lastMessageTime || 0;
+    const bTime = bPreview?.lastMessageTime || 0;
+    return bTime - aTime;
+  });
+  const sortedGroups = [...groups].sort((a, b) => (groupUnreads[b.id] ? 1 : 0) - (groupUnreads[a.id] ? 1 : 0));
 
   function openMenu(friend: Friend) {
     setSelectedFriend(friend);
@@ -129,7 +145,10 @@ export default function ChatListScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: isNew ? "700" : "600", color: colors.text }}>{getDisplayName(item)}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Text style={{ fontSize: 16, fontWeight: isNew ? "700" : "600", color: colors.text }}>{getDisplayName(item)}</Text>
+                        {item.pinned && <MaterialIcons name="push-pin" size={12} color={colors.accent} />}
+                      </View>
                       <Text style={{ fontSize: 12, color: item.online ? colors.greenText : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
                     </View>
                     {isNew ? (
@@ -158,12 +177,12 @@ export default function ChatListScreen() {
               </Pressable>
             </View>
           ) : (
-            <FlatList data={groups} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
+            <FlatList data={sortedGroups} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
               renderItem={({ item }) => {
-                const unread = groupUnreads[item.id] || 0;
+                const hasUnread = !!groupUnreads[item.id];
                 return (
                   <Pressable onPress={() => router.push(`/group/${item.id}`)}
-                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: unread > 0 ? colors.accentLight : colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: unread > 0 ? colors.accent : colors.border }}>
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: hasUnread ? colors.accentLight : colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: hasUnread ? colors.accent : colors.border }}>
                     <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginRight: 14, overflow: "hidden" }}>
                       {item.photoURL ? (
                         <Image source={{ uri: item.photoURL }} style={{ width: 48, height: 48, borderRadius: 24 }} />
@@ -172,13 +191,11 @@ export default function ChatListScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: unread > 0 ? "700" : "600", color: colors.text }}>{item.name}</Text>
+                      <Text style={{ fontSize: 16, fontWeight: hasUnread ? "700" : "600", color: colors.text }}>{item.name}</Text>
                       <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{item.members.length} members</Text>
                     </View>
-                    {unread > 0 ? (
-                      <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>{unread > 99 ? "99+" : unread}</Text>
-                      </View>
+                    {hasUnread ? (
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent }} />
                     ) : (
                       <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
                     )}
@@ -220,6 +237,11 @@ export default function ChatListScreen() {
                 style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 }}>
                 <MaterialIcons name="person" size={20} color={colors.text} />
                 <Text style={{ fontSize: 14, fontWeight: "500", color: colors.text }}>View Profile</Text>
+              </Pressable>
+              <Pressable onPress={async () => { if (!selectedFriend) return; await togglePinFriend(selectedFriend.uid); setMenuVisible(false); }}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 }}>
+                <MaterialIcons name={selectedFriend?.pinned ? "push-pin" : "push-pin"} size={20} color={selectedFriend?.pinned ? colors.accent : colors.text} />
+                <Text style={{ fontSize: 14, fontWeight: "500", color: selectedFriend?.pinned ? colors.accent : colors.text }}>{selectedFriend?.pinned ? "Unpin" : "Pin"}</Text>
               </Pressable>
               <Pressable onPress={() => { setMenuVisible(false); router.push(`/chat/${selectedFriend?.uid}`); }}
                 style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12 }}>

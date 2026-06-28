@@ -127,7 +127,7 @@ export default function ProfileScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }}>{streak} Day Streak!</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Keep it up — take a quiz today</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Keep it up — take a quiz daily</Text>
               </View>
             </View>
           )}

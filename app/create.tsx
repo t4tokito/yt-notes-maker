@@ -19,7 +19,7 @@ function ToolCard({ icon, color, label, sub, route }: { icon: string; color: str
       onPress={() => { hapticMedium(); router.push(route as any); }}
       style={({ pressed }) => ({
         width: CARD,
-        height: 270,
+        height: 180,
         backgroundColor: colors.card,
         borderRadius: 16,
         borderWidth: 1.5,
@@ -30,7 +30,7 @@ function ToolCard({ icon, color, label, sub, route }: { icon: string; color: str
         transform: [{ scale: pressed ? 0.97 : 1 }],
       })}
     >
-      <View style={{ width: 65, height: 65, borderRadius: 18, backgroundColor: color + "20", alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: 65, height: 65, borderRadius: 18, backgroundColor: color + "20", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
         <MaterialIcons name={icon as any} size={30} color={color} />
       </View>
       <View>
@@ -67,7 +67,7 @@ export default function CreateScreen() {
                   <MaterialIcons name="smart-display" size={26} color="#fff" />
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#A5D6A7" }} />
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#C4BBF0" }} />
                   <Text style={{ fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.8)" }}>AI</Text>
                 </View>
               </View>
