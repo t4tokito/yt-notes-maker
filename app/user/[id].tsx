@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
@@ -43,7 +42,7 @@ export default function OtherProfileScreen() {
       }
       setFriendStatus(status);
     }).catch((e: any) => {
-      setLoadError(e?.message || "Failed to load profile. Check your internet connection.");
+      setLoadError(e?.message || "Failed to load profile.");
     }).finally(() => setLoading(false));
   }, [targetUid]);
 
@@ -52,7 +51,6 @@ export default function OtherProfileScreen() {
     try {
       await sendFriendRequest(targetUid!);
       setFriendStatus("pending_sent");
-      Alert.alert("Sent", "Friend request sent!");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to send request.");
     } finally {
@@ -65,88 +63,29 @@ export default function OtherProfileScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Unfriend", style: "destructive", onPress: async () => {
         setActionLoading(true);
-        try {
-          await unfriend(targetUid!);
-          setFriendStatus(null);
-        } catch (e: any) {
-          Alert.alert("Error", e?.message || "Failed.");
-        } finally {
-          setActionLoading(false);
-        }
+        try { await unfriend(targetUid!); setFriendStatus(null); } catch {}
+        finally { setActionLoading(false); }
       }},
     ]);
   }
 
   async function handleCancelRequest() {
     setActionLoading(true);
-    try {
-      await cancelFriendRequest(targetUid!);
-      setFriendStatus(null);
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed.");
-    } finally {
-      setActionLoading(false);
-    }
+    try { await cancelFriendRequest(targetUid!); setFriendStatus(null); } catch {}
+    finally { setActionLoading(false); }
   }
 
   const initials = profile?.username ? profile.username.slice(0, 1).toUpperCase() : "?";
 
-  function renderActionButton() {
-    if (actionLoading) {
-      return (
-        <View style={{ height: 36, borderRadius: 10, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Loading...</Text>
-        </View>
-      );
-    }
-
-    switch (friendStatus) {
-      case "friends":
-        return (
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Pressable onPress={() => router.push(`/chat/${targetUid}`)}
-              style={{ flex: 1, height: 36, borderRadius: 10, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Message</Text>
-            </Pressable>
-            <Pressable onPress={handleUnfriend}
-              style={{ flex: 1, height: 36, borderRadius: 10, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.errorText }}>Unfriend</Text>
-            </Pressable>
-          </View>
-        );
-      case "pending_sent":
-        return (
-          <Pressable onPress={handleCancelRequest}
-            style={{ height: 36, borderRadius: 10, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>Cancel Request</Text>
-          </Pressable>
-        );
-      case "pending_received":
-        return (
-          <View style={{ height: 36, borderRadius: 10, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>Request Pending</Text>
-          </View>
-        );
-      default:
-        return (
-          <Pressable onPress={handleAddFriend}
-            style={{ height: 36, borderRadius: 10, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Add Friend</Text>
-          </Pressable>
-        );
-    }
-  }
-
   if (loadError) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+        <Stack.Screen options={{ headerShown: false }} />
         <MaterialIcons name="wifi-off" size={48} color={colors.muted} />
         <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 12, textAlign: "center" }}>Couldn't load profile</Text>
         <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{loadError}</Text>
-        <Pressable
-          onPress={() => router.back()}
-          style={{ marginTop: 20, height: 44, paddingHorizontal: 24, borderRadius: 12, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}
-        >
+        <Pressable onPress={() => router.back()}
+          style={{ marginTop: 20, height: 44, paddingHorizontal: 24, borderRadius: 12, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>Go Back</Text>
         </Pressable>
       </View>
@@ -156,7 +95,8 @@ export default function OtherProfileScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
-        <MaterialIcons name="person" size={32} color={colors.muted} />
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
@@ -168,50 +108,95 @@ export default function OtherProfileScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
-          {/* Top Bar */}
+          {/* Header */}
           <View style={{ marginHorizontal: 20, marginTop: 56, flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Pressable onPress={() => router.back()} hitSlop={10}>
-              <MaterialIcons name="arrow-back" size={22} color={colors.text} />
+            <Pressable onPress={() => router.back()} hitSlop={10} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="arrow-back" size={18} color={colors.text} />
             </Pressable>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{profile?.username || "username"}</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text, flex: 1 }}>{profile?.username || "User"}</Text>
           </View>
 
-          {/* Profile Section */}
-          <View style={{ marginHorizontal: 20, marginTop: 24, flexDirection: "row", alignItems: "center" }}>
-            <View style={{
-              width: 86, height: 86, borderRadius: 43,
-              backgroundColor: colors.input, borderWidth: 2, borderColor: colors.border,
-              alignItems: "center", justifyContent: "center", overflow: "hidden",
-            }}>
+          {/* Avatar + Stats */}
+          <View style={{ marginHorizontal: 20, marginTop: 24, alignItems: "center" }}>
+            <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: colors.input, borderWidth: 2, borderColor: colors.border, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
               {profile?.photoURL ? (
-                <Image source={{ uri: profile.photoURL }} style={{ width: 86, height: 86, borderRadius: 43 }} />
+                <Image source={{ uri: profile.photoURL }} style={{ width: 90, height: 90, borderRadius: 45 }} />
               ) : (
-                <Text style={{ fontSize: 32, fontWeight: "600", color: colors.accent }}>{initials}</Text>
+                <Text style={{ fontSize: 34, fontWeight: "700", color: colors.accent }}>{initials}</Text>
               )}
             </View>
 
-            <View style={{ flex: 1, flexDirection: "row", justifyContent: "space-around", marginLeft: 24 }}>
-              <View style={{ alignItems: "center" }}>
-                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{(profile?.notesCount ?? 0) + 1}</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Notes</Text>
-              </View>
-              <View style={{ alignItems: "center" }}>
-                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text }}>{(profile?.friendsCount ?? 0) + 1}</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Friends</Text>
-              </View>
+            <Text style={{ marginTop: 14, fontSize: 20, fontWeight: "700", color: colors.text }}>{profile?.username || "User"}</Text>
+            <Text style={{ marginTop: 4, fontSize: 13, color: profile?.bio ? colors.textSecondary : colors.muted, textAlign: "center" }}>{profile?.bio || "No bio yet"}</Text>
+          </View>
+
+          {/* Stats */}
+          <View style={{ marginHorizontal: 40, marginTop: 20, flexDirection: "row", justifyContent: "space-around" }}>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>{(profile?.notesCount ?? 0) + 1}</Text>
+              <Text style={{ marginTop: 2, fontSize: 12, color: colors.muted }}>Notes</Text>
+            </View>
+            <View style={{ width: 1, height: 30, backgroundColor: colors.border }} />
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>{(profile?.friendsCount ?? 0) + 1}</Text>
+              <Text style={{ marginTop: 2, fontSize: 12, color: colors.muted }}>Friends</Text>
             </View>
           </View>
 
-          {/* Bio */}
-          <View style={{ marginHorizontal: 20, marginTop: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>{profile?.username || "username"}</Text>
-            <Text style={{ fontSize: 13, color: profile?.bio ? colors.textSecondary : colors.muted, marginTop: 4, lineHeight: 20 }}>{profile?.bio || "No bio yet"}</Text>
+          {/* Action Buttons */}
+          <View style={{ marginHorizontal: 20, marginTop: 24 }}>
+            {actionLoading ? (
+              <View style={{ height: 48, borderRadius: 14, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>Loading...</Text>
+              </View>
+            ) : friendStatus === "friends" ? (
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable onPress={() => router.push(`/chat/${targetUid}`)}
+                  style={{ flex: 1, height: 48, borderRadius: 14, backgroundColor: colors.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <MaterialIcons name="chat" size={18} color="#fff" />
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>Message</Text>
+                </Pressable>
+                <Pressable onPress={handleUnfriend}
+                  style={{ height: 48, paddingHorizontal: 20, borderRadius: 14, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+                  <MaterialIcons name="person-remove" size={18} color={colors.errorText} />
+                </Pressable>
+              </View>
+            ) : friendStatus === "pending_sent" ? (
+              <Pressable onPress={handleCancelRequest}
+                style={{ height: 48, borderRadius: 14, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <MaterialIcons name="hourglass-empty" size={18} color={colors.muted} />
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.muted }}>Request Pending</Text>
+              </Pressable>
+            ) : friendStatus === "pending_received" ? (
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable onPress={() => { router.push(`/friends`); }}
+                  style={{ flex: 1, height: 48, borderRadius: 14, backgroundColor: colors.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <MaterialIcons name="check" size={18} color="#fff" />
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>View Request</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={handleAddFriend}
+                style={{ height: 48, borderRadius: 14, backgroundColor: colors.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <MaterialIcons name="person-add" size={18} color="#fff" />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>Add Friend</Text>
+              </Pressable>
+            )}
           </View>
 
-          {/* Action Buttons */}
-          <View style={{ marginHorizontal: 20, marginTop: 16 }}>
-            {renderActionButton()}
-          </View>
+          {/* Mutual Info */}
+          {friendStatus === "friends" && (
+            <View style={{ marginHorizontal: 20, marginTop: 24, backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.greenText + "18", alignItems: "center", justifyContent: "center" }}>
+                <MaterialIcons name="check-circle" size={20} color={colors.greenText} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>Friends</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>You are connected with {profile?.username}</Text>
+              </View>
+            </View>
+          )}
+
         </ScrollView>
       </View>
     </View>
