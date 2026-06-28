@@ -4,6 +4,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../lib/theme";
+import { useNotifications } from "../lib/notifications";
 import { hapticLight } from "../lib/haptics";
 
 type Tab = {
@@ -22,6 +23,7 @@ const TABS: Tab[] = [
 
 export function BottomNav() {
   const { colors, gradient } = useTheme();
+  const { totalUnread } = useNotifications();
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -89,6 +91,8 @@ export function BottomNav() {
             );
           }
 
+          const showUnreadDot = tab.key === "chat" && totalUnread > 0 && !active;
+
           return (
             <Pressable
               key={tab.key}
@@ -99,6 +103,9 @@ export function BottomNav() {
                 {renderIcon(tab.key, active)}
                 {active && (
                   <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: colors.accent, marginTop: 4 }} />
+                )}
+                {showUnreadDot && (
+                  <View style={{ position: "absolute", top: 2, right: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.greenText, borderWidth: 1.5, borderColor: colors.cardSolid }} />
                 )}
               </View>
             </Pressable>

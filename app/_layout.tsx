@@ -13,6 +13,7 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, authErrorMessage, useAuth } from "../lib/auth";
 import { ThemeProvider, useTheme } from "../lib/theme";
+import { NotificationProvider } from "../lib/notifications";
 import { BottomNav } from "../components/BottomNav";
 
 function UsernamePrompt() {
@@ -169,8 +170,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <AuthProvider>
-          <StatusBar style="light" />
-          <AppShell />
+          <NotificationProvider>
+            <StatusBar style="light" />
+            <AppShell />
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

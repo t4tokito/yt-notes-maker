@@ -141,3 +141,22 @@ export async function getChatPreviews(friends: { uid: string }[]): Promise<ChatP
 export function getChatId(uid1: string, uid2: string): string {
   return chatId(uid1, uid2);
 }
+
+export async function markMessagesRead(friendUid: string): Promise<void> {
+  const uid = requireUid();
+  const id = chatId(uid, friendUid);
+  const snap = await getDocs(
+    query(
+      collection(db, "chats", id, "messages"),
+      where("read", "==", false),
+      where("fromUid", "!=", uid)
+    )
+  );
+  const batch = snap.docs.map((d) => updateDoc(d.ref, { read: true }));
+  await Promise.all(batch);
+}
+
+export async function getTotalUnreadCount(friends: { uid: string }[]): Promise<number> {
+  const previews = await getChatPreviews(friends);
+  return previews.reduce((sum, p) => sum + p.unread, 0);
+}

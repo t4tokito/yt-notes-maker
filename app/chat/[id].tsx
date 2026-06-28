@@ -7,7 +7,7 @@ import { useTheme } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { sendMessage, subscribeMessages, editMessage, deleteMessage, type Message } from "../../lib/chat";
+import { sendMessage, subscribeMessages, editMessage, deleteMessage, markMessagesRead, type Message } from "../../lib/chat";
 import { GifPicker } from "../../components/GifPicker";
 
 type UserProfile = { username: string; photoURL?: string | null };
@@ -37,7 +37,7 @@ export default function ChatScreen() {
   }, []);
 
   useEffect(() => { if (!friendUid) return; getDoc(doc(db, "users", friendUid)).then((snap) => { if (snap.exists()) { const d = snap.data(); setFriendProfile({ username: d.username, photoURL: d.photoURL }); } }); }, [friendUid]);
-  useEffect(() => { if (!friendUid) return; const unsub = subscribeMessages(friendUid, setMessages); return unsub; }, [friendUid]);
+  useEffect(() => { if (!friendUid) return; const unsub = subscribeMessages(friendUid, setMessages); markMessagesRead(friendUid).catch(() => {}); return unsub; }, [friendUid]);
   useEffect(() => { if (messages.length > 0) { setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100); } }, [messages]);
 
   async function handleSend() {

@@ -101,6 +101,7 @@ export async function sendGroupMessage(groupId: string, text: string): Promise<v
     fromUsername: myData?.username || "",
     text: text.trim(),
     created_at: serverTimestamp(),
+    readBy: [uid],
   });
 }
 
@@ -212,6 +213,35 @@ export async function kickMember(groupId: string, memberUid: string): Promise<vo
     const subadmins = (data.subadmins || []).filter((s: string) => s !== memberUid);
     await updateDoc(doc(db, "groups", groupId), { members, subadmins });
   }
+}
+
+export async function getGroupUnreadCount(groupId: string): Promise<number> {
+  const uid = requireUid();
+  const snap = await getDocs(
+    query(
+      collection(db, "groups", groupId, "messages"),
+      where("fromUid", "!=", uid),
+      where("readBy", "not-in", [uid])
+    )
+  );
+  return snap.size;
+}
+
+export async function markGroupMessagesRead(groupId: string): Promise<void> {
+  const uid = requireUid();
+  const snap = await getDocs(
+    query(
+      collection(db, "groups", groupId, "messages"),
+      where("fromUid", "!=", uid)
+    )
+  );
+  const batch = snap.docs
+    .filter((d) => {
+      const readBy = d.data().readBy || [];
+      return !readBy.includes(uid);
+    })
+    .map((d) => updateDoc(d.ref, { readBy: [...(d.data().readBy || []), uid] }));
+  await Promise.all(batch);
 }
 
 export async function setSubadmin(groupId: string, memberUid: string): Promise<void> {

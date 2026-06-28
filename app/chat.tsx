@@ -4,6 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
+import { useNotifications } from "../lib/notifications";
 import { hapticMedium } from "../lib/haptics";
 import { getFriends, subscribeFriends, updateLastSeen, type Friend } from "../lib/friends";
 import { getMyGroups, subscribeMyGroups, type Group } from "../lib/groups";
@@ -15,6 +16,7 @@ type Tab = "friends" | "groups";
 export default function ChatListScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { friendUnreads, groupUnreads, refresh } = useNotifications();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -109,30 +111,39 @@ export default function ChatListScreen() {
                   <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
                 </Pressable>
               }
-              renderItem={({ item }) => (
-                <Pressable onPress={() => router.push(`/chat/${item.uid}`)}
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
-                  <View style={{ marginRight: 14 }}>
-                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                      {item.photoURL ? (
-                        <Image source={{ uri: item.photoURL }} style={{ width: 48, height: 48, borderRadius: 24 }} />
-                      ) : (
-                        <Text style={{ fontSize: 18, fontWeight: "700", color: "#fff" }}>{item.username.slice(0, 2).toUpperCase()}</Text>
+              renderItem={({ item }) => {
+                const unread = friendUnreads[item.uid] || 0;
+                return (
+                  <Pressable onPress={() => router.push(`/chat/${item.uid}`)}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: unread > 0 ? colors.accentLight : colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: unread > 0 ? colors.accent : colors.border }}>
+                    <View style={{ marginRight: 14 }}>
+                      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                        {item.photoURL ? (
+                          <Image source={{ uri: item.photoURL }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                        ) : (
+                          <Text style={{ fontSize: 18, fontWeight: "700", color: "#fff" }}>{item.username.slice(0, 2).toUpperCase()}</Text>
+                        )}
+                      </View>
+                      {item.online && (
+                        <View style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.greenText, borderWidth: 2, borderColor: unread > 0 ? colors.accentLight : colors.card }} />
                       )}
                     </View>
-                    {item.online && (
-                      <View style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.greenText, borderWidth: 2, borderColor: colors.card }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: unread > 0 ? "700" : "600", color: colors.text }}>{getDisplayName(item)}</Text>
+                      <Text style={{ fontSize: 12, color: item.online ? colors.greenText : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
+                    </View>
+                    {unread > 0 ? (
+                      <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>{unread > 99 ? "99+" : unread}</Text>
+                      </View>
+                    ) : (
+                      <Pressable onPress={(e) => { e.stopPropagation(); openMenu(item); }} hitSlop={10} style={{ padding: 8 }}>
+                        <MaterialIcons name="more-vert" size={20} color={colors.muted} />
+                      </Pressable>
                     )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{getDisplayName(item)}</Text>
-                    <Text style={{ fontSize: 12, color: item.online ? colors.greenText : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
-                  </View>
-                  <Pressable onPress={(e) => { e.stopPropagation(); openMenu(item); }} hitSlop={10} style={{ padding: 8 }}>
-                    <MaterialIcons name="more-vert" size={20} color={colors.muted} />
                   </Pressable>
-                </Pressable>
-              )}
+                );
+              }}
             />
           )
         ) : (
@@ -148,23 +159,32 @@ export default function ChatListScreen() {
             </View>
           ) : (
             <FlatList data={groups} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => router.push(`/group/${item.id}`)}
-                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
-                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginRight: 14, overflow: "hidden" }}>
-                    {item.photoURL ? (
-                      <Image source={{ uri: item.photoURL }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+              renderItem={({ item }) => {
+                const unread = groupUnreads[item.id] || 0;
+                return (
+                  <Pressable onPress={() => router.push(`/group/${item.id}`)}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: unread > 0 ? colors.accentLight : colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: unread > 0 ? colors.accent : colors.border }}>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginRight: 14, overflow: "hidden" }}>
+                      {item.photoURL ? (
+                        <Image source={{ uri: item.photoURL }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                      ) : (
+                        <MaterialIcons name="group" size={24} color={colors.accent} />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: unread > 0 ? "700" : "600", color: colors.text }}>{item.name}</Text>
+                      <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{item.members.length} members</Text>
+                    </View>
+                    {unread > 0 ? (
+                      <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>{unread > 99 ? "99+" : unread}</Text>
+                      </View>
                     ) : (
-                      <MaterialIcons name="group" size={24} color={colors.accent} />
+                      <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
                     )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{item.name}</Text>
-                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{item.members.length} members</Text>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
-                </Pressable>
-              )}
+                  </Pressable>
+                );
+              }}
             />
           )
         )}

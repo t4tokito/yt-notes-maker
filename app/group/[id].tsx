@@ -9,7 +9,7 @@ import { useTheme } from "../../lib/theme";
 import { useAuth } from "../../lib/auth";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { sendGroupMessage, subscribeGroupMessages, updateGroup, getGroupMembers, leaveGroup, kickMember, editGroupMessage, deleteGroupMessage, setSubadmin, removeSubadmin, type GroupMessage } from "../../lib/groups";
+import { sendGroupMessage, subscribeGroupMessages, updateGroup, getGroupMembers, leaveGroup, kickMember, editGroupMessage, deleteGroupMessage, setSubadmin, removeSubadmin, markGroupMessagesRead, type GroupMessage } from "../../lib/groups";
 import { getFriends, type Friend } from "../../lib/friends";
 import { GifPicker } from "../../components/GifPicker";
 
@@ -78,7 +78,7 @@ export default function GroupChatScreen() {
   }
 
   useEffect(() => { if (!groupId) return; getDoc(doc(db, "groups", groupId)).then((snap) => { if (snap.exists()) { const d = snap.data(); setGroupInfo({ name: d.name, members: d.members, createdBy: d.createdBy, subadmins: d.subadmins || [], photoURL: d.photoURL || null }); } }); }, [groupId]);
-  useEffect(() => { if (!groupId) return; const unsub = subscribeGroupMessages(groupId, setMessages); return unsub; }, [groupId]);
+  useEffect(() => { if (!groupId) return; const unsub = subscribeGroupMessages(groupId, setMessages); markGroupMessagesRead(groupId).catch(() => {}); return unsub; }, [groupId]);
   useEffect(() => { if (messages.length > 0) { setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100); } }, [messages]);
 
   // Auto-load all friends when Add Member modal opens
