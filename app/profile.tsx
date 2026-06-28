@@ -4,7 +4,7 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
-import { getNotes, type Note } from "../lib/notes";
+import { getNotes } from "../lib/notes";
 import { getTestResults, type TestResult } from "../lib/testResults";
 import { getFriends, type Friend } from "../lib/friends";
 import { EditProfileModal } from "../components/EditProfileModal";
@@ -131,39 +131,6 @@ export default function ProfileScreen() {
               </View>
             </View>
           )}
-
-          {/* Divider */}
-          <View style={{ marginHorizontal: 20, marginTop: 24, height: 1, backgroundColor: colors.border }} />
-
-          {/* Notes Grid */}
-          <View style={{ marginHorizontal: 20, marginTop: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <MaterialIcons name="grid-view" size={16} color={colors.muted} />
-              <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted, letterSpacing: 0.5 }}>NOTES</Text>
-            </View>
-            {notes.length > 0 && (
-              <Pressable onPress={() => router.push("/notes")}>
-                <Text style={{ fontSize: 12, fontWeight: "600", color: colors.accent }}>View All</Text>
-              </Pressable>
-            )}
-          </View>
-
-          <View style={{ marginHorizontal: 20, marginTop: 12, flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-            {notes.length === 0 ? (
-              <View style={{ width: "100%", padding: 32, alignItems: "center", backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
-                <MaterialIcons name="note-add" size={32} color={colors.border} />
-                <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8 }}>No notes yet</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>Create your first note from the home page</Text>
-              </View>
-            ) : (
-              notes.slice(0, 9).map((note) => (
-                <Pressable key={note.id} onPress={() => router.push(`/note/${note.id}`)}
-                  style={{ width: "31.5%", aspectRatio: 1, backgroundColor: colors.card, borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: colors.border, justifyContent: "flex-end", padding: 8 }}>
-                  <Text numberOfLines={3} style={{ fontSize: 10, fontWeight: "600", color: colors.text, lineHeight: 13 }}>{note.title}</Text>
-                </Pressable>
-              ))
-            )}
-          </View>
 
           {/* Settings Links */}
           <View style={{ marginHorizontal: 20, marginTop: 24 }}>
