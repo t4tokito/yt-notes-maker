@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FlatList, Image, Pressable, Text, View } from "react-native";
+import { FlatList, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../lib/theme";
@@ -21,6 +21,11 @@ export default function ChatListScreen() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [addFriendVisible, setAddFriendVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+  const [nicknameVisible, setNicknameVisible] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [nicknames, setNicknames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -31,6 +36,32 @@ export default function ChatListScreen() {
   }, [user]);
 
   const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
+
+  function openMenu(friend: Friend) {
+    setSelectedFriend(friend);
+    setMenuVisible(true);
+  }
+
+  function handleSetNickname() {
+    if (!selectedFriend) return;
+    setNicknameDraft(nicknames[selectedFriend.uid] || "");
+    setMenuVisible(false);
+    setNicknameVisible(true);
+  }
+
+  function saveNickname() {
+    if (!selectedFriend) return;
+    if (nicknameDraft.trim()) {
+      setNicknames((prev) => ({ ...prev, [selectedFriend.uid]: nicknameDraft.trim() }));
+    } else {
+      setNicknames((prev) => { const next = { ...prev }; delete next[selectedFriend.uid]; return next; });
+    }
+    setNicknameVisible(false);
+  }
+
+  function getDisplayName(friend: Friend) {
+    return nicknames[friend.uid] || friend.username;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -94,10 +125,12 @@ export default function ChatListScreen() {
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{item.username}</Text>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{getDisplayName(item)}</Text>
                     <Text style={{ fontSize: 12, color: item.online ? colors.greenText : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
                   </View>
-                  <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
+                  <Pressable onPress={(e) => { e.stopPropagation(); openMenu(item); }} hitSlop={10} style={{ padding: 8 }}>
+                    <MaterialIcons name="more-vert" size={20} color={colors.muted} />
+                  </Pressable>
                 </Pressable>
               )}
             />
@@ -136,6 +169,67 @@ export default function ChatListScreen() {
           )
         )}
       </View>
+
+      {/* Friend Menu */}
+      <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+        <Pressable style={{ flex: 1 }} onPress={() => setMenuVisible(false)}>
+          <View style={{ flex: 1, backgroundColor: colors.menuOverlay, justifyContent: "flex-end", paddingBottom: 40 }}>
+            <Pressable onPress={(e: any) => e.stopPropagation()}
+              style={{ marginHorizontal: 16, borderRadius: 16, backgroundColor: colors.card, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
+              {selectedFriend && (
+                <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {selectedFriend.photoURL ? (
+                      <Image source={{ uri: selectedFriend.photoURL }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                    ) : (
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>{selectedFriend.username.slice(0, 2).toUpperCase()}</Text>
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: colors.text, flex: 1 }}>{getDisplayName(selectedFriend)}</Text>
+                </View>
+              )}
+              <Pressable onPress={handleSetNickname}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 }}>
+                <MaterialIcons name="badge" size={20} color={colors.text} />
+                <Text style={{ fontSize: 14, fontWeight: "500", color: colors.text, flex: 1 }}>{nicknames[selectedFriend?.uid || ""] ? "Edit Nickname" : "Set Nickname"}</Text>
+                {nicknames[selectedFriend?.uid || ""] && (
+                  <Text style={{ fontSize: 12, color: colors.muted }}>{nicknames[selectedFriend?.uid || ""]}</Text>
+                )}
+              </Pressable>
+              <Pressable onPress={() => { setMenuVisible(false); router.push(`/user/${selectedFriend?.uid}`); }}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12 }}>
+                <MaterialIcons name="person" size={20} color={colors.text} />
+                <Text style={{ fontSize: 14, fontWeight: "500", color: colors.text }}>View Profile</Text>
+              </Pressable>
+              <Pressable onPress={() => { setMenuVisible(false); router.push(`/chat/${selectedFriend?.uid}`); }}
+                style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12 }}>
+                <MaterialIcons name="chat" size={20} color={colors.text} />
+                <Text style={{ fontSize: 14, fontWeight: "500", color: colors.text }}>Send Message</Text>
+              </Pressable>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Nickname Modal */}
+      <Modal visible={nicknameVisible} transparent animationType="fade" onRequestClose={() => setNicknameVisible(false)}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.menuOverlay, paddingHorizontal: 24 }}>
+          <View style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 20, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 4 }}>Set Nickname</Text>
+            <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 14 }}>Only you will see this nickname</Text>
+            <TextInput value={nicknameDraft} onChangeText={setNicknameDraft} placeholder={selectedFriend?.username || "Nickname"} placeholderTextColor={colors.muted} autoFocus
+              style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.text }} />
+            <View style={{ marginTop: 16, flexDirection: "row", gap: 10 }}>
+              <Pressable onPress={() => setNicknameVisible(false)} style={{ flex: 1, alignItems: "center", borderRadius: 12, backgroundColor: colors.input, paddingVertical: 12, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.muted }}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={saveNickname} style={{ flex: 1, alignItems: "center", borderRadius: 12, backgroundColor: colors.accent, paddingVertical: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
     </View>
