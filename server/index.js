@@ -18,7 +18,7 @@ const OPENROUTER_MODEL =
 const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
 
 // Keep transcripts within a sane token budget for the model.
-const MAX_TRANSCRIPT_CHARS = 48000;
+const MAX_TRANSCRIPT_CHARS = 100000;
 
 /** Pull the 11-char video id out of any common YouTube URL shape. */
 function extractVideoId(input) {
@@ -105,11 +105,20 @@ async function getTranscript(videoId) {
 
 const STYLE_INSTRUCTIONS = {
   summary:
-    "Write a concise summary in Markdown: a short overview paragraph followed by the most important key points as a bullet list. Keep it tight.",
+    "Write a concise summary in Markdown. Start with a 2-3 sentence overview. Then list every important point as a bullet — do not skip anything. Use short, punchy bullets. End with a Key Takeaways section.",
   detailed:
-    "Write thorough study notes in Markdown. Use a clear title (#), logically grouped sections (##), bullet points for key ideas, and a final '## Key Takeaways' section. Preserve important details, examples, and definitions.",
+    "Write comprehensive, exhaustive study notes in Markdown. Your goal is ZERO information loss — every concept, fact, example, definition, process, comparison, and nuance from the transcript must appear in the notes. " +
+    "Structure: use ## for major topics, ### for sub-topics. " +
+    "For each topic: explain what it is, why it matters, how it works, and any examples or edge cases mentioned. " +
+    "Include all names, numbers, dates, formulas, tool names, commands, or specific details the speaker mentioned. " +
+    "If the speaker went deep on something, go deep in the notes too. " +
+    "Do NOT summarize away important details. Do NOT merge distinct points into one bullet. " +
+    "End with a '## Key Takeaways' section listing the 5-10 most critical points.",
   bullets:
-    "Write the notes as a clean, scannable Markdown bullet outline. Use nested bullets to show structure. Group related points under short bold headers. No long paragraphs.",
+    "Write a detailed bullet-point outline in Markdown. Use nested bullets (up to 3 levels deep) to capture structure and detail. " +
+    "Every distinct idea, fact, example, or concept from the transcript gets its own bullet. " +
+    "Group related bullets under short bold section headers. " +
+    "Do NOT compress multiple ideas into a single bullet. Do NOT skip minor but specific details.",
 };
 
 function buildPrompt(transcript, style) {
@@ -118,17 +127,23 @@ function buildPrompt(transcript, style) {
     {
       role: "system",
       content:
-        "You are an expert note-taker. You turn raw YouTube video transcripts into clear, well-structured notes. " +
-        "The transcript may contain transcription errors; infer the intended meaning. " +
+        "You are an expert academic note-taker with a photographic memory. You are transcribing a lecture or video into permanent study notes that a student will rely on for exams.\n\n" +
+        "CRITICAL RULES:\n" +
+        "1. COMPLETENESS IS EVERYTHING — Miss zero points. If the speaker spent 30 seconds on it, it belongs in the notes. Every example, every analogy, every aside, every specific number or name matters.\n" +
+        "2. PRESERVE SPECIFIC DETAILS — Keep all proper nouns, technical terms, numbers, dates, commands, formulas, URLs, tool names, and step-by-step processes exactly as mentioned.\n" +
+        "3. NO GENERALIZATIONS — Instead of 'various methods are discussed', write out each method. Instead of 'several examples were given', list each example.\n" +
+        "4. NATURAL WRITING STYLE — Write like a smart student taking notes in real-time, not like a robot. Use varied sentence structures. Avoid repetitive phrasing. Don't start every bullet with 'The speaker mentions...'. Write directly about the topic.\n" +
+        "5. NO FILLER — Remove 'um', 'so basically', 'you know', 'right?', 'okay so' and other speech artifacts. Keep the substance, ditch the fluff.\n" +
+        "6. PRESERVE THE SPEAKER'S EMPHASIS — If the speaker repeated something or slowed down to explain it, give it more space in the notes.\n\n" +
         instruction + "\n\n" +
         "IMPORTANT: Start your response with a title line in this exact format:\n" +
         "TITLE: <short descriptive title, max 80 chars>\n" +
         "Then put the markdown notes after a blank line. " +
-        "No preamble, no 'Here are your notes', no closing remarks.",
+        "No preamble like 'Here are your notes'. No closing remarks. Just the notes.",
     },
     {
       role: "user",
-      content: `Create notes from this video transcript:\n\n${transcript}`,
+      content: `Create comprehensive study notes from this video transcript. Cover EVERYTHING — do not skip any point, no matter how minor it seems.\n\nTRANSCRIPT:\n\n${transcript}`,
     },
   ];
 }
@@ -198,7 +213,8 @@ async function openRouterChat(messages, { temperature = 0.3, maxTokens = 4000 } 
 }
 
 function callOpenRouter(transcript, style) {
-  return openRouterChat(buildPrompt(transcript, style), { maxTokens: 4000 });
+  const maxTokens = style === "summary" ? 4000 : 16000;
+  return openRouterChat(buildPrompt(transcript, style), { maxTokens });
 }
 
 // Retry once on transient network resets (ECONNRESET / aborted connections).
