@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -108,7 +109,9 @@ export async function getChatPreviews(friends: { uid: string }[]): Promise<ChatP
 
   for (const friend of friends) {
     const id = chatId(uid, friend.uid);
-    const snap = await getDocs(
+
+    // Get last message
+    const lastSnap = await getDocs(
       query(
         collection(db, "chats", id, "messages"),
         orderBy("created_at", "desc"),
@@ -116,23 +119,39 @@ export async function getChatPreviews(friends: { uid: string }[]): Promise<ChatP
       )
     );
 
-    if (!snap.empty) {
-      const last = snap.docs[0].data();
+    if (lastSnap.empty) continue;
+
+    const last = lastSnap.docs[0].data();
+    const lastMsgTime = last.created_at?.toMillis?.() || 0;
+
+    // Get user's last read timestamp
+    const readSnap = await getDoc(doc(db, "chats", id, "readState", uid));
+    const lastRead = readSnap.exists() ? (readSnap.data().lastRead || 0) : 0;
+
+    // Count messages from friend that are newer than lastRead
+    let unread = 0;
+    if (lastMsgTime > lastRead) {
       const unreadSnap = await getDocs(
         query(
           collection(db, "chats", id, "messages"),
-          where("read", "==", false),
-          where("fromUid", "!=", uid)
+          where("fromUid", "==", friend.uid),
+          orderBy("created_at", "desc"),
+          limit(50)
         )
       );
-
-      previews.push({
-        friendUid: friend.uid,
-        lastMessage: last.text,
-        lastMessageTime: last.created_at?.toMillis?.() || Date.now(),
-        unread: unreadSnap.size,
-      });
+      for (const d of unreadSnap.docs) {
+        const msgTime = d.data().created_at?.toMillis?.() || 0;
+        if (msgTime > lastRead) unread++;
+        else break;
+      }
     }
+
+    previews.push({
+      friendUid: friend.uid,
+      lastMessage: last.text,
+      lastMessageTime: lastMsgTime,
+      unread,
+    });
   }
 
   return previews.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
@@ -145,15 +164,8 @@ export function getChatId(uid1: string, uid2: string): string {
 export async function markMessagesRead(friendUid: string): Promise<void> {
   const uid = requireUid();
   const id = chatId(uid, friendUid);
-  const snap = await getDocs(
-    query(
-      collection(db, "chats", id, "messages"),
-      where("read", "==", false),
-      where("fromUid", "!=", uid)
-    )
-  );
-  const batch = snap.docs.map((d) => updateDoc(d.ref, { read: true }));
-  await Promise.all(batch);
+  const readRef = doc(db, "chats", id, "readState", uid);
+  await setDoc(readRef, { lastRead: Date.now() }, { merge: true });
 }
 
 export async function getTotalUnreadCount(friends: { uid: string }[]): Promise<number> {

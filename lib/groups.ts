@@ -101,7 +101,6 @@ export async function sendGroupMessage(groupId: string, text: string): Promise<v
     fromUsername: myData?.username || "",
     text: text.trim(),
     created_at: serverTimestamp(),
-    readBy: [uid],
   });
 }
 
@@ -217,31 +216,34 @@ export async function kickMember(groupId: string, memberUid: string): Promise<vo
 
 export async function getGroupUnreadCount(groupId: string): Promise<number> {
   const uid = requireUid();
+
+  // Get user's last read timestamp
+  const readSnap = await getDoc(doc(db, "groups", groupId, "readState", uid));
+  const lastRead = readSnap.exists() ? (readSnap.data().lastRead || 0) : 0;
+
+  // Count messages newer than lastRead from other members
   const snap = await getDocs(
     query(
       collection(db, "groups", groupId, "messages"),
       where("fromUid", "!=", uid),
-      where("readBy", "not-in", [uid])
+      orderBy("created_at", "desc"),
+      limit(50)
     )
   );
-  return snap.size;
+
+  let count = 0;
+  for (const d of snap.docs) {
+    const msgTime = d.data().created_at?.toMillis?.() || 0;
+    if (msgTime > lastRead) count++;
+    else break;
+  }
+  return count;
 }
 
 export async function markGroupMessagesRead(groupId: string): Promise<void> {
   const uid = requireUid();
-  const snap = await getDocs(
-    query(
-      collection(db, "groups", groupId, "messages"),
-      where("fromUid", "!=", uid)
-    )
-  );
-  const batch = snap.docs
-    .filter((d) => {
-      const readBy = d.data().readBy || [];
-      return !readBy.includes(uid);
-    })
-    .map((d) => updateDoc(d.ref, { readBy: [...(d.data().readBy || []), uid] }));
-  await Promise.all(batch);
+  const readRef = doc(db, "groups", groupId, "readState", uid);
+  await setDoc(readRef, { lastRead: Date.now() }, { merge: true });
 }
 
 export async function setSubadmin(groupId: string, memberUid: string): Promise<void> {
