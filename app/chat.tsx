@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
@@ -38,6 +38,8 @@ export default function ChatListScreen() {
   }, [user]);
 
   const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
+
+  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
   function openMenu(friend: Friend) {
     setSelectedFriend(friend);
