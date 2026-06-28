@@ -16,7 +16,7 @@ type Tab = "friends" | "groups";
 export default function ChatListScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { friendUnreads, groupUnreads, refresh } = useNotifications();
+  const { hasNewMsg, clearNewMsg } = useNotifications();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("friends");
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -38,8 +38,6 @@ export default function ChatListScreen() {
   }, [user]);
 
   const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
-
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
   function openMenu(friend: Friend) {
     setSelectedFriend(friend);
@@ -114,10 +112,10 @@ export default function ChatListScreen() {
                 </Pressable>
               }
               renderItem={({ item }) => {
-                const unread = friendUnreads[item.uid] || 0;
+                const isNew = hasNewMsg[item.uid] || false;
                 return (
-                  <Pressable onPress={() => router.push(`/chat/${item.uid}`)}
-                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: unread > 0 ? colors.accentLight : colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: unread > 0 ? colors.accent : colors.border }}>
+                  <Pressable onPress={() => { clearNewMsg(item.uid); router.push(`/chat/${item.uid}`); }}
+                    style={{ flexDirection: "row", alignItems: "center", backgroundColor: isNew ? colors.accentLight : colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: isNew ? colors.accent : colors.border }}>
                     <View style={{ marginRight: 14 }}>
                       <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                         {item.photoURL ? (
@@ -127,16 +125,16 @@ export default function ChatListScreen() {
                         )}
                       </View>
                       {item.online && (
-                        <View style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.greenText, borderWidth: 2, borderColor: unread > 0 ? colors.accentLight : colors.card }} />
+                        <View style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.greenText, borderWidth: 2, borderColor: isNew ? colors.accentLight : colors.card }} />
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: unread > 0 ? "700" : "600", color: colors.text }}>{getDisplayName(item)}</Text>
+                      <Text style={{ fontSize: 16, fontWeight: isNew ? "700" : "600", color: colors.text }}>{getDisplayName(item)}</Text>
                       <Text style={{ fontSize: 12, color: item.online ? colors.greenText : colors.muted, marginTop: 2 }}>{item.online ? "Online" : "Tap to chat"}</Text>
                     </View>
-                    {unread > 0 ? (
+                    {isNew ? (
                       <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 }}>
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>{unread > 99 ? "99+" : unread}</Text>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>NEW</Text>
                       </View>
                     ) : (
                       <Pressable onPress={(e) => { e.stopPropagation(); openMenu(item); }} hitSlop={10} style={{ padding: 8 }}>
