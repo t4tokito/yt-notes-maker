@@ -97,7 +97,7 @@ function PinnedNote({ note, onPress }: { note: Note; onPress: () => void }) {
 }
 
 export default function Home() {
-  const { colors } = useTheme();
+  const { colors, gradient } = useTheme();
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -135,6 +135,8 @@ export default function Home() {
   const pinnedNotes = notes.filter((n) => n.pinned);
   const pinnedFlashcards = flashcardSets.filter((s) => s.pinned);
   const sortedFriends = [...friends].sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0));
+  const totalNotes = notes.length;
+  const totalFlashcards = flashcardSets.reduce((acc, s) => acc + s.cards.length, 0);
 
   return (
     <View style={{ flex: 1 }}>
@@ -144,8 +146,51 @@ export default function Home() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
           <Header title="HOME" onProfilePress={() => router.push("/profile")} />
 
+          {/* Hero — App Purpose */}
+          <Pressable
+            onPress={() => { hapticMedium(); router.push("/new"); }}
+            style={({ pressed }) => ({ marginHorizontal: 20, marginTop: 16, borderRadius: 20, overflow: "hidden", transform: [{ scale: pressed ? 0.98 : 1 }] })}
+          >
+            <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 22 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+                  <MaterialIcons name="smart-display" size={24} color="#fff" />
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#A5D6A7" }} />
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.8)" }}>AI</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: "#fff", marginTop: 14 }}>Turn Videos into Notes</Text>
+              <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginTop: 4, lineHeight: 18 }}>Paste any YouTube link — AI creates comprehensive study notes for you</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 14, gap: 6 }}>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Create Notes</Text>
+                <MaterialIcons name="arrow-forward" size={14} color="rgba(255,255,255,0.8)" />
+              </View>
+            </LinearGradient>
+          </Pressable>
+
+          {/* Quick Stats */}
+          <View style={{ marginHorizontal: 20, marginTop: 16, flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}>
+              <MaterialIcons name="description" size={22} color={colors.accent} />
+              <Text style={{ marginTop: 8, fontSize: 20, fontWeight: "700", color: colors.text }}>{totalNotes}</Text>
+              <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Notes</Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}>
+              <MaterialIcons name="style" size={22} color={colors.toolFlashcards} />
+              <Text style={{ marginTop: 8, fontSize: 20, fontWeight: "700", color: colors.text }}>{totalFlashcards}</Text>
+              <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Flashcards</Text>
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}>
+              <MaterialIcons name="people" size={22} color={colors.greenText} />
+              <Text style={{ marginTop: 8, fontSize: 20, fontWeight: "700", color: colors.text }}>{friends.length}</Text>
+              <Text style={{ marginTop: 2, fontSize: 11, color: colors.muted }}>Friends</Text>
+            </View>
+          </View>
+
           {/* Friends */}
-          <View style={{ marginHorizontal: 20, marginTop: 16 }}>
+          <View style={{ marginHorizontal: 20, marginTop: 24 }}>
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
               <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted, letterSpacing: 0.5 }}>FRIENDS</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
