@@ -8,6 +8,7 @@ import { hapticMedium } from "../lib/haptics";
 import { getFriends, subscribeFriends, updateLastSeen, type Friend } from "../lib/friends";
 import { getMyGroups, subscribeMyGroups, type Group } from "../lib/groups";
 import { Header } from "../components/Header";
+import { AddFriendModal } from "../components/AddFriendModal";
 
 type Tab = "friends" | "groups";
 
@@ -19,6 +20,7 @@ export default function ChatListScreen() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addFriendVisible, setAddFriendVisible] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -63,6 +65,19 @@ export default function ChatListScreen() {
             </View>
           ) : (
             <FlatList data={sortedFriends} keyExtractor={(item) => item.uid} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
+              ListHeaderComponent={
+                <Pressable onPress={() => { hapticMedium(); setAddFriendVisible(true); }}
+                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed" }}>
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accentLight, alignItems: "center", justifyContent: "center", marginRight: 14 }}>
+                    <MaterialIcons name="person-add" size={22} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.accent }}>Add Friend</Text>
+                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Find and add new friends</Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
+                </Pressable>
+              }
               renderItem={({ item }) => (
                 <Pressable onPress={() => router.push(`/chat/${item.uid}`)}
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
@@ -121,6 +136,8 @@ export default function ChatListScreen() {
           )
         )}
       </View>
+
+      <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
     </View>
   );
 }
