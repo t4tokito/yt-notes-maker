@@ -110,7 +110,11 @@ export default function ChatListScreen() {
             <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 32, alignItems: "center", borderWidth: 1, borderColor: colors.border, marginTop: 40 }}>
               <MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} />
               <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text, marginTop: 12 }}>No friends to chat</Text>
-              <Text style={{ fontSize: 14, color: colors.muted, marginTop: 8, textAlign: "center" }}>Add friends to start chatting</Text>
+              <Text style={{ fontSize: 14, color: colors.muted, marginTop: 8, textAlign: "center", marginBottom: 16 }}>Add friends to start chatting</Text>
+              <Pressable onPress={() => { hapticMedium(); setAddFriendVisible(true); }}
+                style={{ backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>Add Friend</Text>
+              </Pressable>
             </View>
           ) : (
             <FlatList data={sortedFriends} keyExtractor={(item) => item.uid} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
@@ -178,6 +182,19 @@ export default function ChatListScreen() {
             </View>
           ) : (
             <FlatList data={sortedGroups} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
+              ListHeaderComponent={
+                <Pressable onPress={() => router.push("/create-group")}
+                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed" }}>
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accentLight, alignItems: "center", justifyContent: "center", marginRight: 14 }}>
+                    <MaterialIcons name="group-add" size={22} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: colors.accent }}>Create Group</Text>
+                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Start a new group chat</Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
+                </Pressable>
+              }
               renderItem={({ item }) => {
                 const hasUnread = !!groupUnreads[item.id];
                 return (
