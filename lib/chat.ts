@@ -146,7 +146,6 @@ export async function getChatPreviews(friends: { uid: string }[]): Promise<ChatP
           else break;
         }
       } catch {}
-      }
     }
 
     previews.push({
