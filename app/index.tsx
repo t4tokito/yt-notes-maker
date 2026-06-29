@@ -5,7 +5,6 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Header } from "../components/Header";
-import { AddFriendModal } from "../components/AddFriendModal";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
 import { hapticMedium } from "../lib/haptics";
@@ -123,7 +122,6 @@ export default function Home() {
   const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>([]);
   const [weekData, setWeekData] = useState<WeekDay[]>([]);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
-  const [addFriendVisible, setAddFriendVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -218,7 +216,7 @@ export default function Home() {
               <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, alignItems: "center" }}>
-              <AddFriendIcon onPress={() => { hapticMedium(); setAddFriendVisible(true); }} />
+              <AddFriendIcon onPress={() => { hapticMedium(); router.push("/add-friend"); }} />
               {loading ? (
                 <>
                   <View style={{ width: 58, height: 58, borderRadius: 16, backgroundColor: colors.input, opacity: 0.4 }} />
@@ -299,8 +297,6 @@ export default function Home() {
             )}
           </View>
         </ScrollView>
-
-        <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
       </View>
     </View>
   );

@@ -4,84 +4,16 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   ActivityIndicator,
-  Modal,
-  Pressable,
-  Text,
-  TextInput,
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider, authErrorMessage, useAuth } from "../lib/auth";
+import { AuthProvider, useAuth } from "../lib/auth";
 import { ThemeProvider, useTheme } from "../lib/theme";
 import { NotificationProvider } from "../lib/notifications";
 import { BottomNav } from "../components/BottomNav";
 import { VersionCheckModal } from "../components/VersionCheckModal";
 import { checkVersion } from "../lib/api";
 import { APP_VERSION } from "../config";
-
-function UsernamePrompt() {
-  const { user, needsUsername, setUsername } = useAuth();
-  const { colors } = useTheme();
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const visible = !!user && needsUsername;
-
-  async function save() {
-    setError(null);
-    setSaving(true);
-    try {
-      await setUsername(value);
-    } catch (e) {
-      setError(authErrorMessage(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.menuOverlay, paddingHorizontal: 24 }}>
-        <View style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>
-            Choose a username
-          </Text>
-          <Text style={{ marginBottom: 14, marginTop: 4, fontSize: 12, color: colors.muted }}>
-            6-15 characters, letters, numbers, underscore
-          </Text>
-          <TextInput
-            value={value}
-            onChangeText={setValue}
-            placeholder="yourname"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            maxLength={15}
-            editable={!saving}
-            onSubmitEditing={save}
-            style={{ borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: colors.text }}
-          />
-          {error ? (
-            <Text style={{ marginTop: 10, fontSize: 12, color: colors.errorText }}>{error}</Text>
-          ) : null}
-          <Pressable
-            onPress={save}
-            disabled={saving}
-            style={{ marginTop: 14, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: saving ? colors.muted : colors.accent }}
-          >
-            {saving ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#ffffff" }}>Save</Text>
-            )}
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 function RootNavigator() {
   const { user, initializing } = useAuth();
@@ -117,6 +49,7 @@ function RootNavigator() {
     >
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+      <Stack.Screen name="add-friend" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="notes" options={{ headerShown: false }} />
       <Stack.Screen name="create" options={{ headerShown: false }} />
@@ -165,7 +98,6 @@ function AppShell() {
     <View style={{ flex: 1 }}>
       <RootNavigator />
       {user && !onLoginScreen && !onChatDetail && !isNewScreen && !onGroupScreen && !onUserScreen && !onNoteDetail && !onTestScreen && <BottomNav />}
-      <UsernamePrompt />
       <VersionCheckModal visible={updateAvailable} onClose={() => setUpdateAvailable(false)} />
     </View>
   );

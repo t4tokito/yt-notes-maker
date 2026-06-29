@@ -10,7 +10,6 @@ import { getFriends, subscribeFriends, updateLastSeen, togglePinFriend, type Fri
 import { getChatPreviews, type ChatPreview } from "../lib/chat";
 import { getMyGroups, subscribeMyGroups, type Group } from "../lib/groups";
 import { Header } from "../components/Header";
-import { AddFriendModal } from "../components/AddFriendModal";
 
 type Tab = "friends" | "groups";
 
@@ -23,7 +22,6 @@ export default function ChatListScreen() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addFriendVisible, setAddFriendVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [nicknameVisible, setNicknameVisible] = useState(false);
@@ -111,7 +109,7 @@ export default function ChatListScreen() {
               <MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} />
               <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text, marginTop: 12 }}>No friends to chat</Text>
               <Text style={{ fontSize: 14, color: colors.muted, marginTop: 8, textAlign: "center", marginBottom: 16 }}>Add friends to start chatting</Text>
-              <Pressable onPress={() => { hapticMedium(); setAddFriendVisible(true); }}
+              <Pressable onPress={() => { hapticMedium(); router.push("/add-friend"); }}
                 style={{ backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 }}>
                 <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>Add Friend</Text>
               </Pressable>
@@ -119,7 +117,7 @@ export default function ChatListScreen() {
           ) : (
             <FlatList data={sortedFriends} keyExtractor={(item) => item.uid} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}
               ListHeaderComponent={
-                <Pressable onPress={() => { hapticMedium(); setAddFriendVisible(true); }}
+                <Pressable onPress={() => { hapticMedium(); router.push("/add-friend"); }}
                   style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border, borderStyle: "dashed" }}>
                   <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accentLight, alignItems: "center", justifyContent: "center", marginRight: 14 }}>
                     <MaterialIcons name="person-add" size={22} color={colors.accent} />
@@ -290,7 +288,6 @@ export default function ChatListScreen() {
         </View>
       </Modal>
 
-      <AddFriendModal visible={addFriendVisible} onClose={() => setAddFriendVisible(false)} />
     </View>
   );
 }
