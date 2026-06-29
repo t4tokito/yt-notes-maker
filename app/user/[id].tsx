@@ -133,12 +133,12 @@ export default function OtherProfileScreen() {
           {/* Stats */}
           <View style={{ marginHorizontal: 40, marginTop: 20, flexDirection: "row", justifyContent: "space-around" }}>
             <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>{(profile?.notesCount ?? 0) + 1}</Text>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>{profile?.notesCount ?? 0}</Text>
               <Text style={{ marginTop: 2, fontSize: 12, color: colors.muted }}>Notes</Text>
             </View>
             <View style={{ width: 1, height: 30, backgroundColor: colors.border }} />
             <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>{(profile?.friendsCount ?? 0) + 1}</Text>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>{profile?.friendsCount ?? 0}</Text>
               <Text style={{ marginTop: 2, fontSize: 12, color: colors.muted }}>Friends</Text>
             </View>
           </View>

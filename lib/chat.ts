@@ -131,18 +131,21 @@ export async function getChatPreviews(friends: { uid: string }[]): Promise<ChatP
     // Count messages from friend that are newer than lastRead
     let unread = 0;
     if (lastMsgTime > lastRead) {
-      const unreadSnap = await getDocs(
-        query(
-          collection(db, "chats", id, "messages"),
-          where("fromUid", "==", friend.uid),
-          orderBy("created_at", "desc"),
-          limit(50)
-        )
-      );
-      for (const d of unreadSnap.docs) {
-        const msgTime = d.data().created_at?.toMillis?.() || 0;
-        if (msgTime > lastRead) unread++;
-        else break;
+      try {
+        const unreadSnap = await getDocs(
+          query(
+            collection(db, "chats", id, "messages"),
+            where("fromUid", "==", friend.uid),
+            orderBy("created_at", "desc"),
+            limit(50)
+          )
+        );
+        for (const d of unreadSnap.docs) {
+          const msgTime = d.data().created_at?.toMillis?.() || 0;
+          if (msgTime > lastRead) unread++;
+          else break;
+        }
+      } catch {}
       }
     }
 
