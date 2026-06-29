@@ -215,29 +215,28 @@ export async function kickMember(groupId: string, memberUid: string): Promise<vo
 }
 
 export async function getGroupUnreadCount(groupId: string): Promise<number> {
-  const uid = requireUid();
-
-  // Get user's last read timestamp
-  const readSnap = await getDoc(doc(db, "groups", groupId, "readState", uid));
-  const lastRead = readSnap.exists() ? (readSnap.data().lastRead || 0) : 0;
-
-  // Count messages newer than lastRead from other members
-  const snap = await getDocs(
-    query(
-      collection(db, "groups", groupId, "messages"),
-      where("fromUid", "!=", uid),
-      orderBy("created_at", "desc"),
-      limit(50)
-    )
-  );
-
-  let count = 0;
-  for (const d of snap.docs) {
-    const msgTime = d.data().created_at?.toMillis?.() || 0;
-    if (msgTime > lastRead) count++;
-    else break;
+  try {
+    const uid = requireUid();
+    const readSnap = await getDoc(doc(db, "groups", groupId, "readState", uid));
+    const lastRead = readSnap.exists() ? (readSnap.data().lastRead || 0) : 0;
+    const snap = await getDocs(
+      query(
+        collection(db, "groups", groupId, "messages"),
+        where("fromUid", "!=", uid),
+        orderBy("created_at", "desc"),
+        limit(50)
+      )
+    );
+    let count = 0;
+    for (const d of snap.docs) {
+      const msgTime = d.data().created_at?.toMillis?.() || 0;
+      if (msgTime > lastRead) count++;
+      else break;
+    }
+    return count;
+  } catch {
+    return 0;
   }
-  return count;
 }
 
 export async function markGroupMessagesRead(groupId: string): Promise<void> {
