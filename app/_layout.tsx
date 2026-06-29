@@ -150,11 +150,13 @@ function AppShell() {
 
   useEffect(() => {
     if (!user) return;
-    checkVersion().then((serverVersion) => {
-      if (serverVersion && serverVersion !== APP_VERSION) {
-        setUpdateAvailable(true);
-      }
-    });
+    try {
+      checkVersion().then((serverVersion) => {
+        if (serverVersion && serverVersion !== APP_VERSION) {
+          setUpdateAvailable(true);
+        }
+      }).catch(() => {});
+    } catch {}
   }, [user]);
 
   return (

@@ -32,65 +32,75 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
 
-    // Listen to friends collection to find all chat partners
-    const unsubFriends = onSnapshot(
-      collection(db, "users", uid, "friends"),
-      (snap) => {
-        // For each friend, subscribe to their chat's latest messages
-        for (const doc of snap.docs) {
-          const friendUid = doc.id;
-          const id = chatId(uid, friendUid);
+    const cleanups: (() => void)[] = [];
 
-          onSnapshot(
-            query(
-              collection(db, "chats", id, "messages"),
-              orderBy("created_at", "desc"),
-              limit(1)
-            ),
-            (msgSnap) => {
-              if (msgSnap.empty) return;
-              const msg = msgSnap.docs[0].data();
-              const msgTime = msg.created_at?.toMillis?.() || 0;
-              const fromThem = msg.fromUid !== uid;
+    try {
+      const unsubFriends = onSnapshot(
+        collection(db, "users", uid, "friends"),
+        (snap) => {
+          for (const doc of snap.docs) {
+            const friendUid = doc.id;
+            const id = chatId(uid, friendUid);
 
-              // If message is from the other person and newer than what we saw
-              if (fromThem && msgTime > (lastMsgTimes.current[friendUid] || 0)) {
-                setHasNewMsg((prev) => ({ ...prev, [friendUid]: true }));
-              }
-            }
-          );
-        }
-      }
-    );
+            const unsubChat = onSnapshot(
+              query(
+                collection(db, "chats", id, "messages"),
+                orderBy("created_at", "desc"),
+                limit(1)
+              ),
+              (msgSnap) => {
+                if (msgSnap.empty) return;
+                const msg = msgSnap.docs[0].data();
+                const msgTime = msg.created_at?.toMillis?.() || 0;
+                const fromThem = msg.fromUid !== uid;
 
-    // Listen to user's groups for new messages
-    const unsubGroups = onSnapshot(
-      collection(db, "users", uid, "groups"),
-      (snap) => {
-        for (const groupDoc of snap.docs) {
-          const groupId = groupDoc.id;
-          onSnapshot(
-            query(
-              collection(db, "groups", groupId, "messages"),
-              orderBy("created_at", "desc"),
-              limit(1)
-            ),
-            (msgSnap) => {
-              if (msgSnap.empty) return;
-              const msg = msgSnap.docs[0].data();
-              const msgTime = msg.created_at?.toMillis?.() || 0;
-              const fromThem = msg.fromUid !== uid;
+                if (fromThem && msgTime > (lastMsgTimes.current[friendUid] || 0)) {
+                  setHasNewMsg((prev) => ({ ...prev, [friendUid]: true }));
+                }
+              },
+              () => {}
+            );
+            cleanups.push(unsubChat);
+          }
+        },
+        () => {}
+      );
+      cleanups.push(unsubFriends);
+    } catch {}
 
-              if (fromThem && msgTime > (lastGroupReadTimes.current[groupId] || 0)) {
-                setGroupUnreads((prev) => ({ ...prev, [groupId]: true }));
-              }
-            }
-          );
-        }
-      }
-    );
+    try {
+      const unsubGroups = onSnapshot(
+        collection(db, "users", uid, "groups"),
+        (snap) => {
+          for (const groupDoc of snap.docs) {
+            const groupId = groupDoc.id;
+            const unsubGroupMsg = onSnapshot(
+              query(
+                collection(db, "groups", groupId, "messages"),
+                orderBy("created_at", "desc"),
+                limit(1)
+              ),
+              (msgSnap) => {
+                if (msgSnap.empty) return;
+                const msg = msgSnap.docs[0].data();
+                const msgTime = msg.created_at?.toMillis?.() || 0;
+                const fromThem = msg.fromUid !== uid;
 
-    return () => { unsubFriends(); unsubGroups(); };
+                if (fromThem && msgTime > (lastGroupReadTimes.current[groupId] || 0)) {
+                  setGroupUnreads((prev) => ({ ...prev, [groupId]: true }));
+                }
+              },
+              () => {}
+            );
+            cleanups.push(unsubGroupMsg);
+          }
+        },
+        () => {}
+      );
+      cleanups.push(unsubGroups);
+    } catch {}
+
+    return () => { cleanups.forEach((fn) => fn()); };
   }, []);
 
   const clearNewMsg = useCallback((friendUid: string) => {

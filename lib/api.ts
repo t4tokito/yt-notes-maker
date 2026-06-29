@@ -4,7 +4,10 @@ import { API_URL } from "../config";
 
 export async function checkVersion(): Promise<string | null> {
   try {
-    const res = await fetch(`${API_URL}/api/version`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${API_URL}/api/version`, { signal: controller.signal });
+    clearTimeout(timeout);
     const data = await res.json();
     return data.version;
   } catch {
