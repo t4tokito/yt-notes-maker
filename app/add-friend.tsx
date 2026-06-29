@@ -4,7 +4,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useTheme } from "../lib/theme";
 import { useAuth } from "../lib/auth";
-import { searchUsers, getFriendRequests, acceptFriendRequest, rejectFriendRequest, sendFriendRequest, getFriends, type Friend, type FriendRequest } from "../lib/friends";
+import { searchUsers, getFriendRequests, acceptFriendRequest, rejectFriendRequest, sendFriendRequest, getFriends, getSentRequestUids, type Friend, type FriendRequest } from "../lib/friends";
 import { useCallback } from "react";
 
 export default function AddFriendScreen() {
@@ -23,7 +23,13 @@ export default function AddFriendScreen() {
   useFocusEffect(useCallback(() => {
     getFriendRequests().then(setRequests).catch(() => {});
     getFriends().then(setFriends).catch(() => {});
-  }, []));
+    getSentRequestUids().then(setSentIds).catch(() => {});
+    if (search.trim()) {
+      searchUsers(search.trim())
+        .then((users) => setResults(users.filter((u) => u.uid !== user?.uid)))
+        .catch(() => {});
+    }
+  }, [search, user?.uid]));
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

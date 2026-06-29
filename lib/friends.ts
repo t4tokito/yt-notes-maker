@@ -137,6 +137,12 @@ export async function getFriendStatus(targetUid: string): Promise<FriendStatus |
   return null;
 }
 
+export async function getSentRequestUids(): Promise<Set<string>> {
+  const uid = requireUid();
+  const snap = await getDocs(collection(db, "users", uid, "friendRequestsSent"));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
 export async function getFriends(): Promise<Friend[]> {
   const uid = requireUid();
   const snap = await getDocs(collection(db, "users", uid, "friends"));
