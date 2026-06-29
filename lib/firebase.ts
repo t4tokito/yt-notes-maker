@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, initializeAuth, type Auth } from "firebase/auth";
+// @ts-ignore - getReactNativePersistence exists at runtime in @firebase/auth/dist/rn but has no TS types
+import { initializeAuth, getReactNativePersistence } from "@firebase/auth/dist/rn/index.js";
 import { initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 
@@ -13,38 +14,15 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const AUTH_PERSIST_KEY = "@firebase_auth";
-
-const asyncStoragePersistence = {
-  type: "LOCAL" as const,
-  async _isAvailable() { return true; },
-  async _set(key: string, value: string) {
-    const raw = await AsyncStorage.getItem(AUTH_PERSIST_KEY);
-    const data = raw ? JSON.parse(raw) : {};
-    data[key] = value;
-    await AsyncStorage.setItem(AUTH_PERSIST_KEY, JSON.stringify(data));
-  },
-  async _get(key: string) {
-    const raw = await AsyncStorage.getItem(AUTH_PERSIST_KEY);
-    const data = raw ? JSON.parse(raw) : {};
-    return data[key] ?? null;
-  },
-  async _remove(key: string) {
-    const raw = await AsyncStorage.getItem(AUTH_PERSIST_KEY);
-    const data = raw ? JSON.parse(raw) : {};
-    delete data[key];
-    await AsyncStorage.setItem(AUTH_PERSIST_KEY, JSON.stringify(data));
-  },
-  _addListener(_key: string, _callback: (value: string | null) => void) { return () => {}; },
-  _removeListener(_key: string, _callback: (value: string | null) => void) {},
-};
-
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-let auth: Auth;
+let auth;
 try {
-  auth = initializeAuth(app, { persistence: asyncStoragePersistence });
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
 } catch {
+  const { getAuth } = require("firebase/auth");
   auth = getAuth(app);
 }
 
