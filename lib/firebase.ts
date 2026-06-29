@@ -1,12 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import {
-  getAuth,
-  initializeAuth,
-  // @ts-expect-error - getReactNativePersistence is exported at runtime but
-  // missing from some firebase/auth type bundles.
-  getReactNativePersistence,
-} from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 import { Platform } from "react-native";
@@ -34,14 +28,7 @@ if (__DEV__) {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// On native we need AsyncStorage-backed persistence so the user stays logged in
-// across app restarts. On web, Firebase's default (IndexedDB) persistence works.
-export const auth =
-  Platform.OS === "web"
-    ? getAuth(app)
-    : initializeAuth(app, {
-        persistence: getReactNativePersistence(AsyncStorage),
-      });
+export const auth = getAuth(app);
 
 // Use initializeFirestore with long polling so Firestore works even on networks
 // that block WebSocket / gRPC (common on mobile carriers, school/work WiFi).
