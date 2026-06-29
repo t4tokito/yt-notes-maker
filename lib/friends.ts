@@ -131,7 +131,7 @@ export async function getFriendStatus(targetUid: string): Promise<FriendStatus |
   const sentSnap = await getDoc(doc(db, "users", uid, "friendRequestsSent", targetUid));
   if (sentSnap.exists()) return "pending_sent";
 
-  const receivedSnap = await getDoc(doc(db, "users", targetUid, "friendRequests", uid));
+  const receivedSnap = await getDoc(doc(db, "users", uid, "friendRequests", targetUid));
   if (receivedSnap.exists()) return "pending_received";
 
   return null;

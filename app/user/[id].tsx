@@ -169,7 +169,7 @@ export default function OtherProfileScreen() {
               </Pressable>
             ) : friendStatus === "pending_received" ? (
               <View style={{ flexDirection: "row", gap: 10 }}>
-                <Pressable onPress={() => { router.push(`/friends`); }}
+                <Pressable onPress={() => { router.push("/add-friend"); }}
                   style={{ flex: 1, height: 48, borderRadius: 14, backgroundColor: colors.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <MaterialIcons name="check" size={18} color="#fff" />
                   <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>View Request</Text>
