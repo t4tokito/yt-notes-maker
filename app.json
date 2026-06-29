@@ -1,12 +1,17 @@
 {
   "expo": {
-    "name": "notes-maker",
-    "slug": "notes-maker",
+    "name": "tokitoflix",
+    "slug": "tokitoflix",
     "version": "1.0.0",
     "scheme": "notesmaker",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E2030"
+    },
     "plugins": [
       "expo-router",
       "expo-sqlite",
@@ -16,8 +21,9 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.notesmaker.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": " #1E2030",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -26,6 +32,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "06bec962-ed9d-4384-a744-92989724b8e8"
+      }
     }
   }
 }

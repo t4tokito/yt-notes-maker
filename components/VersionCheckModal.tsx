@@ -1,8 +1,7 @@
 import { Linking, Modal, Pressable, Text, View } from "react-native";
 import { useTheme } from "../lib/theme";
 
-// TODO: Replace with your actual download page URL
-const DOWNLOAD_URL = "https://example.com/download";
+const DOWNLOAD_URL = "https://tokitoflix.netlify.app/";
 
 type Props = {
   visible: boolean;
@@ -19,7 +18,7 @@ export function VersionCheckModal({ visible, onClose }: Props) {
           <Pressable onPress={(e: any) => e.stopPropagation()} style={{ width: "100%", borderRadius: 16, backgroundColor: colors.card, padding: 24, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 8 }}>Update Available</Text>
             <Text style={{ fontSize: 14, color: colors.muted, lineHeight: 20, marginBottom: 20 }}>
-              A new version of Notes Maker is available. Please update to get the latest features and improvements.
+              A new version of TokitoFlix is available. Please update to get the latest features and improvements.
             </Text>
             <Pressable
               onPress={() => { Linking.openURL(DOWNLOAD_URL); onClose(); }}
