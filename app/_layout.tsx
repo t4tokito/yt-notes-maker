@@ -92,7 +92,8 @@ function RootNavigator() {
   useEffect(() => {
     if (initializing) return;
     const onLoginScreen = segments[0] === "login";
-    if (!user && !onLoginScreen) {
+    const onForgotPassword = segments[0] === "forgot-password";
+    if (!user && !onLoginScreen && !onForgotPassword) {
       router.replace("/login");
     } else if (user && onLoginScreen) {
       router.replace("/");
@@ -115,6 +116,7 @@ function RootNavigator() {
       }}
     >
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="notes" options={{ headerShown: false }} />
       <Stack.Screen name="create" options={{ headerShown: false }} />

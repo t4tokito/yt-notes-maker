@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { authErrorMessage, useAuth } from "../lib/auth";
 import { validateUsername } from "../lib/usernames";
 import { useTheme } from "../lib/theme";
@@ -10,6 +11,7 @@ type Mode = "login" | "signup";
 export default function Login() {
   const { signIn, signUp } = useAuth();
   const { colors } = useTheme();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("login");
   const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
@@ -43,7 +45,7 @@ export default function Login() {
           <View style={{ marginBottom: 16, width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
             <MaterialIcons name="edit-note" size={28} color={colors.accent} />
           </View>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text }}>Notes Maker</Text>
+          <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text }}>TokitoFlix</Text>
           <Text style={{ marginTop: 6, fontSize: 13, color: colors.muted, textAlign: "center" }}>
             {isLogin ? "Welcome back" : "Create an account"}
           </Text>
@@ -69,6 +71,12 @@ export default function Login() {
         <Text style={{ marginBottom: 6, marginTop: 16, fontSize: 12, fontWeight: "600", color: colors.muted, letterSpacing: 0.5 }}>PASSWORD</Text>
         <TextInput value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} secureTextEntry editable={!loading} onSubmitEditing={onSubmit}
           style={{ borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: colors.text }} />
+
+        {isLogin && (
+          <Pressable onPress={() => router.push("/forgot-password")} disabled={loading} style={{ marginTop: 12, alignSelf: "flex-end" }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.accent }}>Forgot Password?</Text>
+          </Pressable>
+        )}
 
         {error ? (
           <View style={{ marginTop: 16, borderRadius: 10, borderWidth: 1, borderColor: colors.errorBorder, backgroundColor: colors.errorBg, padding: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
