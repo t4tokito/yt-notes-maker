@@ -1,15 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, initializeAuth, type Auth } from "firebase/auth";
 import { initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
-import { Platform } from "react-native";
 
-/**
- * Firebase config is read from EXPO_PUBLIC_FIREBASE_* env vars (see .env).
- * These are public client keys — safe to ship in the app bundle; access is
- * controlled by Firebase Security Rules, not by hiding the config.
- */
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -19,19 +13,43 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debug: log the projectId to verify env vars are loaded
-if (__DEV__) {
-  console.log("[Firebase] projectId:", firebaseConfig.projectId);
-  console.log("[Firebase] authDomain:", firebaseConfig.authDomain);
-  console.log("[Firebase] apiKey set:", !!firebaseConfig.apiKey);
-}
+const AUTH_PERSIST_KEY = "@firebase_auth";
+
+const asyncStoragePersistence = {
+  type: "LOCAL" as const,
+  async _isAvailable() { return true; },
+  async _set(key: string, value: string) {
+    const raw = await AsyncStorage.getItem(AUTH_PERSIST_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    data[key] = value;
+    await AsyncStorage.setItem(AUTH_PERSIST_KEY, JSON.stringify(data));
+  },
+  async _get(key: string) {
+    const raw = await AsyncStorage.getItem(AUTH_PERSIST_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    return data[key] ?? null;
+  },
+  async _remove(key: string) {
+    const raw = await AsyncStorage.getItem(AUTH_PERSIST_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    delete data[key];
+    await AsyncStorage.setItem(AUTH_PERSIST_KEY, JSON.stringify(data));
+  },
+  _addListener(_key: string, _callback: (value: string | null) => void) { return () => {}; },
+  _removeListener(_key: string, _callback: (value: string | null) => void) {},
+};
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
+let auth: Auth;
+try {
+  auth = initializeAuth(app, { persistence: asyncStoragePersistence });
+} catch {
+  auth = getAuth(app);
+}
 
-// Use initializeFirestore with long polling so Firestore works even on networks
-// that block WebSocket / gRPC (common on mobile carriers, school/work WiFi).
+export { auth };
+
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   cacheSizeBytes: CACHE_SIZE_UNLIMITED,
